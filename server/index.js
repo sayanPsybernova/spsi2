@@ -4,663 +4,367 @@ const bodyParser = require("body-parser");
 const path = require("path");
 const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
-require("dotenv").config(); // Load environment variables
-const { createClient } = require("@supabase/supabase-js");
+const fs = require("fs");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-// Initialize Supabase
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY; // Or SUPABASE_SERVICE_ROLE_KEY for server-side
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Paths (No longer used for Supabase, keeping for reference until removed)
-const USERS_FILE = path.join(__dirname, "data", "users.json");
-const SUBMISSIONS_FILE = path.join(__dirname, "data", "submissions.json");
+// --- Local Data Management ---
+const DATA_DIR = path.join(__dirname, "data");
+const UPLOADS_DIR = path.join(__dirname, "uploads");
 
-// Helper Functions (No longer used for Supabase, will be removed)
-const readData = (file) => {
+// Ensure directories exist
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const FILES = {
+  users: path.join(DATA_DIR, "users.json"),
+  submissions: path.join(DATA_DIR, "submissions.json"),
+  workOrders: path.join(DATA_DIR, "work_orders.json"),
+  lineItems: path.join(DATA_DIR, "line_items.json"),
+};
+
+// Helper to read data safely
+const readData = (filePath) => {
   try {
-    if (!fs.existsSync(file)) return [];
-    const data = fs.readFileSync(file, "utf8");
-    return JSON.parse(data);
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, "[]");
+      return [];
+    }
+    const data = fs.readFileSync(filePath, "utf8");
+    return JSON.parse(data || "[]");
   } catch (err) {
-    console.error("Error reading file:", file, err);
+    console.error(`Error reading ${filePath}:`, err);
     return [];
   }
 };
 
-const writeData = (file, data) => {
+// Helper to write data safely
+const writeData = (filePath, data) => {
   try {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    return true;
   } catch (err) {
-    console.error("Error writing file:", file, err);
+    console.error(`Error writing ${filePath}:`, err);
+    return false;
   }
 };
 
-// File Upload Config (Changing to memory storage for Supabase upload)
-const storage = multer.memoryStorage();
+// Initialize files if empty
+Object.values(FILES).forEach((file) => readData(file));
+
+// Multer Config (Local Storage)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
 const upload = multer({ storage: storage });
 
 // --- ROUTES ---
 
 // 1. Login
-app.post("/api/login", async (req, res) => {
-  const { email, password } = req.body;
+app.post("/api/login", (req, res) => {
+  const { userId, password } = req.body; // userId is username/emp_id
+  const users = readData(FILES.users);
 
-  try {
-    const { data: users, error } = await supabase
-      .from("users")
-      .select("id, name, role, email, image") // Select only necessary fields
-      .eq("email", email) // Assume 'email' is the primary login identifier
-      .eq("password", password) // Still using plain text password as per original logic. Hashing recommended.
-      .limit(1);
+  // Match against emp_id or email
+  const user = users.find(
+    (u) =>
+      (u.emp_id === userId || u.email === userId || u.name === userId) &&
+      u.password === password
+  );
 
-    if (error) throw error;
-
-    const user = users[0]; // Supabase returns an array
-
-    if (user) {
-      res.json({
-        success: true,
-        user: {
-          id: user.id,
-          name: user.name,
-          role: user.role,
-          email: user.email,
-          userId: user.email, // Using email as userId for consistency
-          image: user.image,
-        },
-      });
-    } else {
-      res.status(401).json({ success: false, message: "Invalid credentials" });
-    }
-  } catch (error) {
-    console.error("Error during login:", error.message);
-    res.status(500).json({ success: false, message: "Server error during login" });
-  }
-});
-
-// 2. Create User (Super Admin Only)
-app.post("/api/users", upload.single("image"), async (req, res) => {
-  try {
-    const { name, phone, userId, password, role } = req.body;
-
-    // Validate required fields
-    if (!name || !phone || !userId || !password || !role) {
-      return res
-        .status(400)
-        .json({ success: false, message: "All fields are required" });
-    }
-
-    // Check if user already exists
-    const { data: existingUser, error: checkError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", userId)
-      .limit(1);
-
-    if (checkError) throw checkError;
-    if (existingUser.length > 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "User ID (email) already exists" });
-    }
-
-    let imageUrl = "";
-    if (req.file) {
-      const fileName = `${uuidv4()}${path.extname(req.file.originalname)}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("uploads") // Name of your storage bucket
-        .upload(fileName, req.file.buffer, {
-          contentType: req.file.mimetype,
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from("uploads")
-        .getPublicUrl(fileName);
-
-      imageUrl = publicUrlData.publicUrl;
-    }
-
-    const { data: newUser, error: insertError } = await supabase
-      .from("users")
-      .insert([
-        {
-          name,
-          phone,
-          email: userId, // Mapping userId to email field for consistency
-          password,
-          role,
-          image: imageUrl,
-        },
-      ])
-      .select(); // To return the newly created user
-
-    if (insertError) throw insertError;
-
+  if (user && user.active !== false) {
     res.json({
       success: true,
-      message: "User created successfully",
-      user: newUser[0], // Supabase returns an array
+      user: {
+        id: user.id,
+        name: user.name,
+        role: user.role,
+        email: user.email,
+        emp_id: user.emp_id,
+        image: user.image,
+      },
     });
-  } catch (error) {
-    console.error("Error creating user:", error);
-    res
-      .status(500)
-      .json({ success: false, message: `Server error while creating user: ${error.message}` });
+  } else {
+    res.status(401).json({ success: false, message: "Invalid credentials" });
   }
 });
 
-// 2.1 Get All Users (Super Admin)
-app.get("/api/users", async (req, res) => {
-  try {
-    const { data: users, error } = await supabase
-      .from("users")
-      .select("id, name, phone, email, role, image, password"); // Supabase already returns these
-
-    if (error) throw error;
-
-    const formattedUsers = users.map(u => ({
-      id: u.id,
-      name: u.name,
-      phone: u.phone,
-      userId: u.email, // Using email as userId for consistency
-      role: u.role,
-      image: u.image,
-      password: u.password
-    }));
-
-    res.json(formattedUsers);
-  } catch (error) {
-    console.error("Error getting all users:", error.message);
-    res.status(500).json({ success: false, message: "Server error while getting users" });
-  }
+// 2. User Management (Admin)
+app.get("/api/users", (req, res) => {
+  const users = readData(FILES.users);
+  const safeUsers = users.map(({ password, ...u }) => u);
+  res.json(safeUsers);
 });
 
-// 2.3 Update User (Super Admin)
-app.put("/api/users/:id", upload.single("image"), async (req, res) => {
-  const { id } = req.params;
-  const { name, phone, userId, password, role } = req.body; // userId now refers to email
+app.post("/api/users", upload.single("image"), (req, res) => {
+  const { name, emp_id, role, phone, email, password } = req.body;
+  const users = readData(FILES.users);
 
-  try {
-    // First, fetch the existing user to compare and get current image if not updating
-    const { data: existingUsers, error: fetchError } = await supabase
-      .from("users")
-      .select("id, email, image, name") // Added name to selection
-      .eq("id", id)
-      .limit(1);
-
-    if (fetchError) throw fetchError;
-    if (existingUsers.length === 0) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-    const existingUser = existingUsers[0];
-
-    // 1. Handle Email Change: Update supervisor_id in submissions
-    if (userId && userId !== existingUser.email) {
-      const { data: conflictUsers, error: conflictError } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", userId)
-        .neq("id", id);
-
-      if (conflictError) throw conflictError;
-      if (conflictUsers.length > 0) {
-        return res.status(400).json({ success: false, message: "User ID (email) already exists" });
-      }
-      
-      // Update submissions to reflect the new email/userId
-      const { error: submissionUpdateError } = await supabase
-        .from("submissions")
-        .update({ supervisor_id: userId })
-        .eq("supervisor_id", existingUser.email);
-
-      if (submissionUpdateError) console.error("Error updating submissions ID:", submissionUpdateError);
-    }
-
-    // 2. Handle Name Change: Update supervisor_name in submissions
-    // We use the *new* userId if it changed, or the *old* email if it didn't.
-    const currentId = userId || existingUser.email;
-    
-    if (name && name !== existingUser.name) {
-        const { error: nameUpdateError } = await supabase
-            .from("submissions")
-            .update({ supervisor_name: name })
-            .eq("supervisor_id", currentId);
-            
-        if (nameUpdateError) console.error("Error updating submissions Name:", nameUpdateError);
-    }
-
-    let imageUrl = existingUser.image; // Keep existing image if no new file
-    if (req.file) {
-      const fileName = `${uuidv4()}${path.extname(req.file.originalname)}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("uploads") // Name of your storage bucket
-        .upload(fileName, req.file.buffer, {
-          contentType: req.file.mimetype,
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from("uploads")
-        .getPublicUrl(fileName);
-
-      imageUrl = publicUrlData.publicUrl;
-
-      // Optional: Delete old image from storage if it exists
-      if (existingUser.image) {
-        const oldFileName = existingUser.image.split("/").pop(); // Get filename from URL
-        await supabase.storage.from("uploads").remove([oldFileName]);
-      }
-    }
-
-    const { data: updatedUsers, error: updateError } = await supabase
-      .from("users")
-      .update({
-        name: name,
-        phone: phone,
-        email: userId,
-        password: password,
-        role: role,
-        image: imageUrl,
-      })
-      .eq("id", id)
-      .select();
-
-    if (updateError) throw updateError;
-
-    res.json({ success: true, message: "User updated successfully", user: updatedUsers[0] });
-  } catch (error) {
-    console.error("Error updating user:", error);
-    res.status(500).json({ success: false, message: `Server error while updating user: ${error.message}` });
+  if (users.find((u) => u.emp_id === emp_id)) {
+    return res.status(400).json({ success: false, message: "Employee ID already exists" });
   }
+
+  const newUser = {
+    id: uuidv4(),
+    name,
+    emp_id,
+    role,
+    phone,
+    email,
+    password, // Storing plain text as requested (demo)
+    active: true,
+    image: req.file ? `/uploads/${req.file.filename}` : "",
+    created_at: new Date().toISOString(),
+  };
+
+  users.push(newUser);
+  writeData(FILES.users, users);
+
+  res.json({ success: true, message: "User created", user: newUser });
 });
 
-// 2.2 Delete User (Super Admin)
-app.delete("/api/users/:id", async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    // First, retrieve the user to get the image URL for deletion from storage
-    const { data: userToDelete, error: fetchError } = await supabase
-      .from("users")
-      .select("image")
-      .eq("id", id)
-      .limit(1);
-
-    if (fetchError) throw fetchError;
-    if (userToDelete.length === 0) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    // Delete user from database
-    const { error: deleteError } = await supabase
-      .from("users")
-      .delete()
-      .eq("id", id);
-
-    if (deleteError) throw deleteError;
-
-    // If user had an image, delete it from Supabase Storage
-    const imageUrl = userToDelete[0].image;
-    if (imageUrl) {
-      const fileName = imageUrl.split("/").pop(); // Extract filename from URL
-      const { error: storageError } = await supabase.storage
-        .from("uploads")
-        .remove([fileName]);
-      if (storageError) console.error("Error deleting old image from storage:", storageError);
-    }
-
-    res.json({ success: true, message: "User deleted successfully" });
-  } catch (error) {
-    console.error("Error deleting user:", error.message);
-    res.status(500).json({ success: false, message: "Server error while deleting user" });
-  }
+// 3. Master Data: Work Orders (Admin)
+app.get("/api/work-orders", (req, res) => {
+  const workOrders = readData(FILES.workOrders);
+  res.json(workOrders);
 });
-// 3. Create Submission (Supervisor)
-app.post("/api/submissions", upload.array("photos", 10), async (req, res) => {
+
+app.post("/api/work-orders", (req, res) => {
+  const { orderNumber } = req.body;
+  const workOrders = readData(FILES.workOrders);
+
+  if (workOrders.find((wo) => wo.order_number === orderNumber)) {
+    return res.status(400).json({ success: false, message: "Work Order already exists" });
+  }
+
+  const newWO = {
+    id: uuidv4(),
+    order_number: orderNumber,
+    created_at: new Date().toISOString(),
+  };
+
+  workOrders.push(newWO);
+  writeData(FILES.workOrders, workOrders);
+  res.json({ success: true, message: "Work Order created", workOrder: newWO });
+});
+
+// 4. Master Data: Line Items (Admin)
+app.get("/api/line-items", (req, res) => {
+  const { workOrderId } = req.query;
+  let lineItems = readData(FILES.lineItems);
+
+  if (workOrderId) {
+    lineItems = lineItems.filter((li) => li.work_order_id === workOrderId);
+  }
+  res.json(lineItems);
+});
+
+app.post("/api/line-items", (req, res) => {
+  const { workOrderId, name, uom, rate, standardManpower } = req.body;
+  const lineItems = readData(FILES.lineItems);
+
+  const newItem = {
+    id: uuidv4(),
+    work_order_id: workOrderId,
+    name,
+    uom,
+    rate: parseFloat(rate), // Hidden from Supervisor in frontend
+    standard_manpower: standardManpower,
+    created_at: new Date().toISOString(),
+  };
+
+  lineItems.push(newItem);
+  writeData(FILES.lineItems, lineItems);
+  res.json({ success: true, message: "Line Item added", lineItem: newItem });
+});
+
+// 5. Submissions (Supervisor -> Validator -> Admin)
+app.get("/api/submissions", (req, res) => {
+  const { role, userId, status } = req.query; // userId is internal ID here
+  let submissions = readData(FILES.submissions);
+  const workOrders = readData(FILES.workOrders);
+  const lineItems = readData(FILES.lineItems);
+
+  // Join data for convenience
+  let enrichedSubmissions = submissions.map((sub) => {
+    const wo = workOrders.find((w) => w.id === sub.work_order_id);
+    const li = lineItems.find((l) => l.id === sub.line_item_id);
+    return {
+      ...sub,
+      work_order_number: wo ? wo.order_number : "Unknown",
+      line_item_name: li ? li.name : "Unknown",
+      uom: li ? li.uom : "",
+      // Rate and Revenue logic depending on role
+      rate: role === "supervisor" ? undefined : sub.snapshot_rate, // Hide from supervisor
+      revenue: role === "supervisor" ? undefined : sub.revenue,   // Hide from supervisor
+    };
+  });
+
+  if (role === "supervisor") {
+    enrichedSubmissions = enrichedSubmissions.filter((s) => s.supervisor_id === userId);
+  } else if (role === "admin") {
+    enrichedSubmissions = enrichedSubmissions.filter((s) => s.status === "Approved");
+  }
+  
+  // Validator sees all pending/rejected/approved
+
+  if (status) {
+    enrichedSubmissions = enrichedSubmissions.filter((s) => s.status === status);
+  }
+
+  // Sort by date desc
+  enrichedSubmissions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  res.json(enrichedSubmissions);
+});
+
+app.post("/api/submissions", upload.array("photos"), (req, res) => {
   const {
     supervisorId,
     supervisorName,
-    sugarQty,
-    sugarPrice,
-    saltQty,
-    saltPrice,
+    workOrderId,
+    lineItemId,
+    quantity,
+    actualManpower,
+    materialConsumed,
   } = req.body;
 
-  try {
-    let photoUrls = [];
+  const lineItems = readData(FILES.lineItems);
+  const selectedItem = lineItems.find((li) => li.id === lineItemId);
+
+  if (!selectedItem) {
+    return res.status(400).json({ success: false, message: "Invalid Line Item" });
+  }
+
+  const qty = parseFloat(quantity);
+  const revenue = qty * selectedItem.rate;
+
+  const newSubmission = {
+    id: uuidv4(),
+    supervisor_id: supervisorId,
+    supervisor_name: supervisorName,
+    work_order_id: workOrderId,
+    line_item_id: lineItemId,
     
-    // Upload photos if any
-    if (req.files && req.files.length > 0) {
-      const uploadPromises = req.files.map(async (file) => {
-        try {
-          const fileName = `evidence/${uuidv4()}${path.extname(file.originalname)}`;
-          const { data, error } = await supabase.storage
-            .from("uploads")
-            .upload(fileName, file.buffer, {
-              contentType: file.mimetype,
-              upsert: false,
-            });
-          
-          if (error) {
-            console.error("Supabase Storage Upload Error for file:", fileName, error);
-            throw new Error(`Failed to upload ${fileName}: ${error.message}`);
-          }
-          
-          const { data: publicUrlData } = supabase.storage
-            .from("uploads")
-            .getPublicUrl(fileName);
-            
-          return publicUrlData.publicUrl;
-        } catch (fileUploadError) {
-          console.error("Error processing single file for upload:", fileUploadError);
-          throw fileUploadError; // Re-throw to be caught by Promise.all
-        }
-      });
-      
-      photoUrls = await Promise.all(uploadPromises);
-    }
+    // Inputs
+    quantity: qty,
+    actual_manpower: actualManpower,
+    material_consumed: materialConsumed || "",
+    
+    // Snapshots
+    snapshot_rate: selectedItem.rate,
+    snapshot_standard_manpower: selectedItem.standard_manpower,
+    revenue: revenue, // Calculated
+    
+    status: "Pending Validation",
+    remarks: "",
+    admin_remarks: "",
+    evidence_photos: req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [],
+    
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
 
-    const newSubmission = {
-      supervisor_id: supervisorId, 
-      supervisor_name: supervisorName, 
-      date: new Date().toISOString(),
-      sugar_qty: parseFloat(sugarQty),
-      sugar_price: parseFloat(sugarPrice),
-      total_sugar: parseFloat(sugarQty) * parseFloat(sugarPrice),
-      salt_qty: parseFloat(saltQty),
-      salt_price: parseFloat(saltPrice),
-      total_salt: parseFloat(saltQty) * parseFloat(saltPrice),
-      grand_total:
-        parseFloat(sugarQty) * parseFloat(sugarPrice) +
-        parseFloat(saltQty) * parseFloat(saltPrice),
-      status: "Pending",
-      remarks: "",
-      admin_remarks: "",
-      evidence_photos: photoUrls // Store array of URLs
-    };
+  const submissions = readData(FILES.submissions);
+  submissions.push(newSubmission);
+  writeData(FILES.submissions, submissions);
 
-    const { data, error } = await supabase
-      .from("submissions")
-      .insert([newSubmission])
-      .select();
-
-    if (error) {
-      console.error("Supabase Insert Error:", error);
-      throw error;
-    }
-
-    res.json({ success: true, message: "Data submitted successfully", submission: data[0] });
-  } catch (error) {
-    console.error("Error creating submission:", error);
-    res.status(500).json({ success: false, message: `Server error while creating submission: ${error.message}` });
-  }
+  res.json({ success: true, message: "Submitted successfully", submission: newSubmission });
 });
-// 4. Get Submissions (Role based)
-app.get("/api/submissions", async (req, res) => {
-  const { role, userId, status } = req.query;
 
-  try {
-    let query = supabase.from("submissions").select("*");
-
-    if (role === "supervisor") {
-      // Supervisor sees only their own
-      query = query.eq("supervisor_id", userId); // Use supervisor_id from Supabase schema
-    }
-
-    // Filter by status if provided
-    if (status) {
-      query = query.eq("status", status);
-    }
-
-    const { data: submissions, error } = await query;
-
-    if (error) throw error;
-
-    // Add actionRequiredBy field dynamically (client side logic, keeping for now)
-    const formattedSubmissions = submissions.map(s => {
-      let actionRequiredBy = 'None';
-      if (s.status === 'Pending') actionRequiredBy = 'Validator';
-      else if (s.status === 'Rejected') actionRequiredBy = 'Supervisor';
-
-      // Map Supabase snake_case to original camelCase if necessary for frontend
-      return {
-        id: s.id,
-        supervisorId: s.supervisor_id,
-        supervisorName: s.supervisor_name,
-        date: s.date,
-        sugarQty: s.sugar_qty,
-        sugarPrice: s.sugar_price,
-        totalSugar: s.total_sugar,
-        saltQty: s.salt_qty,
-        saltPrice: s.salt_price,
-        totalSalt: s.total_salt,
-        grandTotal: s.grand_total,
-        status: s.status,
-        remarks: s.remarks,
-        adminRemarks: s.admin_remarks,
-        evidencePhotos: s.evidence_photos || [], // Map evidence_photos to evidencePhotos
-        actionRequiredBy: actionRequiredBy
-      };
-    });
-
-    res.json(formattedSubmissions);
-  } catch (error) {
-    console.error("Error getting submissions:", error.message);
-    res.status(500).json({ success: false, message: "Server error while getting submissions" });
-  }
-});// 5. Validate Submission (Validator)
-app.put("/api/submissions/:id/validate", async (req, res) => {
+// 6. Validate Submission (Validator)
+app.put("/api/submissions/:id/validate", (req, res) => {
   const { id } = req.params;
-  const { status, remarks } = req.body; // status: 'Approved' or 'Rejected'
+  const { status, remarks, quantity } = req.body; // Validator can edit quantity
+  const submissions = readData(FILES.submissions);
+  const subIndex = submissions.findIndex((s) => s.id === id);
 
-  try {
-    const updateData = { status: status };
-    if (remarks) updateData.remarks = remarks;
+  if (subIndex === -1) return res.status(404).json({ success: false, message: "Submission not found" });
 
-    const { data, error } = await supabase
-      .from("submissions")
-      .update(updateData)
-      .eq("id", id)
-      .select();
+  const submission = submissions[subIndex];
+  
+  // Update status
+  submission.status = status;
+  submission.updated_at = new Date().toISOString();
 
-    if (error) throw error;
-    if (data.length === 0) {
-      return res.status(404).json({ success: false, message: "Submission not found" });
-    }
-
-    res.json({ success: true, message: `Submission ${status}`, submission: data[0] });
-  } catch (error) {
-    console.error("Error validating submission:", error.message);
-    res.status(500).json({ success: false, message: "Server error while validating submission" });
+  // If rejected, add remarks
+  if (status === "Rejected") {
+    submission.remarks = remarks || "Rejected by Validator";
+  } else if (status === "Approved") {
+    submission.remarks = ""; // Clear rejection remarks if approved
   }
-});
-// 6. Admin Remark (Normal Admin)
-app.put("/api/submissions/:id/admin-remark", async (req, res) => {
-  const { id } = req.params;
-  const { adminRemarks } = req.body;
 
-  try {
-    const { data, error } = await supabase
-      .from("submissions")
-      .update({ admin_remarks: adminRemarks }) // Use admin_remarks for Supabase schema
-      .eq("id", id)
-      .select();
-
-    if (error) throw error;
-    if (data.length === 0) {
-      return res.status(404).json({ success: false, message: "Submission not found" });
-    }
-
-    res.json({ success: true, message: "Admin remark added", submission: data[0] });
-  } catch (error) {
-    console.error("Error adding admin remark:", error.message);
-    res.status(500).json({ success: false, message: "Server error while adding admin remark" });
+  // Validator Edit Logic: Can edit quantity
+  if (quantity !== undefined && quantity !== null) {
+      submission.quantity = parseFloat(quantity);
+      // Recalculate revenue based on snapshot rate
+      submission.revenue = submission.quantity * submission.snapshot_rate;
   }
+
+  submissions[subIndex] = submission;
+  writeData(FILES.submissions, submissions);
+
+  res.json({ success: true, message: `Submission ${status}`, submission });
 });
+
 // 7. Resubmit (Supervisor)
-app.put("/api/submissions/:id", upload.array("photos", 10), async (req, res) => {
+app.put("/api/submissions/:id", upload.array("photos"), (req, res) => {
   const { id } = req.params;
-  const { sugarQty, sugarPrice, saltQty, saltPrice } = req.body;
+  // Supervisor can edit these fields on resubmission
+  const { quantity, actualManpower, materialConsumed } = req.body;
+  
+  const submissions = readData(FILES.submissions);
+  const subIndex = submissions.findIndex((s) => s.id === id);
 
-  try {
-    const sugarQ = parseFloat(sugarQty);
-    const sugarP = parseFloat(sugarPrice);
-    const saltQ = parseFloat(saltQty);
-    const saltP = parseFloat(saltPrice);
+  if (subIndex === -1) return res.status(404).json({ success: false, message: "Submission not found" });
 
-    // 1. Fetch existing submission to get current photos
-    const { data: existingSub, error: fetchError } = await supabase
-      .from("submissions")
-      .select("evidence_photos")
-      .eq("id", id)
-      .single();
-      
-    if (fetchError) {
-      console.error("Supabase Fetch Error (Resubmit):", fetchError);
-      throw fetchError;
-    }
+  const submission = submissions[subIndex];
 
-    let updatedPhotos = existingSub.evidence_photos || [];
-
-    // 2. Upload new photos if any
-    if (req.files && req.files.length > 0) {
-      const uploadPromises = req.files.map(async (file) => {
-        try {
-          const fileName = `evidence/${uuidv4()}${path.extname(file.originalname)}`;
-          const { data, error } = await supabase.storage
-            .from("uploads")
-            .upload(fileName, file.buffer, {
-              contentType: file.mimetype,
-              upsert: false,
-            });
-          
-          if (error) {
-            console.error("Supabase Storage Upload Error (Resubmit) for file:", fileName, error);
-            throw new Error(`Failed to upload ${fileName}: ${error.message}`);
-          }
-          
-          const { data: publicUrlData } = supabase.storage
-            .from("uploads")
-            .getPublicUrl(fileName);
-            
-          return publicUrlData.publicUrl;
-        } catch (fileUploadError) {
-          console.error("Error processing single file for resubmit upload:", fileUploadError);
-          throw fileUploadError; // Re-throw to be caught by Promise.all
-        }
-      });
-      
-      const newPhotoUrls = await Promise.all(uploadPromises);
-      updatedPhotos = [...updatedPhotos, ...newPhotoUrls];
-    }
-
-    const updateData = {
-      sugar_qty: sugarQ,
-      sugar_price: sugarP,
-      total_sugar: sugarQ * sugarP,
-      salt_qty: saltQ,
-      salt_price: saltP,
-      total_salt: saltQ * saltP,
-      grand_total: (sugarQ * sugarP) + (saltQ * saltP),
-      status: "Pending", // Reset to Pending
-      evidence_photos: updatedPhotos
-    };
-
-    const { data, error } = await supabase
-      .from("submissions")
-      .update(updateData)
-      .eq("id", id)
-      .select();
-
-    if (error) {
-      console.error("Supabase Update Error (Resubmit):", error);
-      throw error;
-    }
-    if (data.length === 0) {
-      return res.status(404).json({ success: false, message: "Submission not found" });
-    }
-
-    res.json({ success: true, message: "Resubmitted successfully", submission: data[0] });
-  } catch (error) {
-    console.error("Error resubmitting:", error);
-    res.status(500).json({ success: false, message: `Server error while resubmitting: ${error.message}` });
+  // Update fields
+  if (quantity) {
+    submission.quantity = parseFloat(quantity);
+    submission.revenue = submission.quantity * submission.snapshot_rate; // Recalculate
   }
-});
-// 8. Stats (Super Admin Graphs & Dashboard)
-app.get("/api/stats", async (req, res) => {
-  try {
-    const { data: submissions, error: submissionsError } = await supabase
-      .from("submissions")
-      .select("status, date, grand_total"); // Select only necessary fields
+  if (actualManpower) submission.actual_manpower = actualManpower;
+  if (materialConsumed) submission.material_consumed = materialConsumed;
 
-    if (submissionsError) throw submissionsError;
-
-    const { data: users, error: usersError } = await supabase
-      .from("users")
-      .select("id"); // Only need count, so just select ID
-
-    if (usersError) throw usersError;
-
-    // 1. Calculate Active Users
-    const activeUsers = users.length;
-
-    // 2. Calculate Pending Tasks
-    const pendingTasks = submissions.filter(s => s.status === 'Pending').length;
-
-    // 3. Group Sales by month
-    const monthlySales = {};
-
-    submissions.forEach((s) => {
-      if (s.status === "Approved") {
-        // Only count approved sales
-        const date = new Date(s.date);
-        const month = date.toLocaleString("default", { month: "short" });
-        const year = date.getFullYear();
-        const key = `${month} ${year}`;
-
-        if (!monthlySales[key]) monthlySales[key] = 0;
-        monthlySales[key] += parseFloat(s.grand_total); // Ensure grand_total is numeric
-      }
-    });
-
-    const chartData = Object.keys(monthlySales).map((key) => ({
-      name: key,
-      sales: monthlySales[key],
-    }));
-
-    res.json({
-      chartData,
-      activeUsers,
-      pendingTasks
-    });
-  } catch (error) {
-    console.error("Error getting stats:", error.message);
-    res.status(500).json({ success: false, message: "Server error while getting stats" });
+  // Add new photos if any
+  if (req.files && req.files.length > 0) {
+    const newPhotos = req.files.map((f) => `/uploads/${f.filename}`);
+    submission.evidence_photos = [...(submission.evidence_photos || []), ...newPhotos];
   }
+
+  // Reset status to Pending Validation
+  submission.status = "Pending Validation";
+  submission.updated_at = new Date().toISOString();
+
+  submissions[subIndex] = submission;
+  writeData(FILES.submissions, submissions);
+
+  res.json({ success: true, message: "Resubmitted successfully", submission });
 });
 
-// Export app for Netlify Functions
+// Export app for Netlify Functions (Optional, but good for structure)
 module.exports = app;
 
-// Only start server if running locally (not required for serverless)
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Local Data Mode: ON`);
+    console.log(`Data Directory: ${DATA_DIR}`);
   });
 }
+

@@ -24,7 +24,8 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const res = await axios.post(API_ENDPOINTS.login, { email, password });
+      // Server expects 'userId' parameter for login (which can be email or emp_id)
+      const res = await axios.post(API_ENDPOINTS.login, { userId: email, password });
       if (res.data.success) {
         setUser(res.data.user);
         localStorage.setItem("spsi_user", JSON.stringify(res.data.user));

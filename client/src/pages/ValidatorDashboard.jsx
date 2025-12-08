@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
-import { Check, X, Filter, AlertCircle } from "lucide-react";
+import { Check, X, Filter, AlertCircle, Edit2, Save } from "lucide-react";
 import { API_ENDPOINTS } from "../config/api";
 
 export default function ValidatorDashboard() {
@@ -9,6 +9,10 @@ export default function ValidatorDashboard() {
   const [filter, setFilter] = useState("Pending"); // Pending, Approved, Rejected, All
   const [rejectModal, setRejectModal] = useState(null); // ID of submission to reject
   const [rejectReason, setRejectReason] = useState("");
+  
+  // Edit State
+  const [editingId, setEditingId] = useState(null);
+  const [editQuantity, setEditQuantity] = useState("");
 
   useEffect(() => {
     fetchSubmissions();
@@ -27,17 +31,29 @@ export default function ValidatorDashboard() {
 
   const handleStatus = async (id, status, remarks = "") => {
     try {
-      await axios.put(`${API_ENDPOINTS.submissions}/${id}/validate`, {
-        status,
-        remarks,
-      });
+      const payload = { status, remarks };
+      
+      // If we were editing this specific submission, send the new quantity
+      if (editingId === id && editQuantity) {
+          payload.quantity = editQuantity;
+      }
+
+      await axios.put(`${API_ENDPOINTS.submissions}/${id}/validate`, payload);
+      
       fetchSubmissions();
       setRejectModal(null);
       setRejectReason("");
+      setEditingId(null);
+      setEditQuantity("");
     } catch (err) {
       console.error("Error updating status:", err);
       alert("Error updating status");
     }
+  };
+
+  const startEditing = (sub) => {
+      setEditingId(sub.id);
+      setEditQuantity(sub.quantity);
   };
 
   const filteredSubmissions =
@@ -56,7 +72,7 @@ export default function ValidatorDashboard() {
               Validator Dashboard
             </h1>
             <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-              Review and validate field data.
+              Review, edit, and validate field data.
             </p>
           </div>
 
@@ -91,7 +107,12 @@ export default function ValidatorDashboard() {
             filteredSubmissions
               .slice()
               .reverse()
-              .map((item) => (
+              .map((item) => {
+                const isEditing = editingId === item.id;
+                const displayQty = isEditing ? editQuantity : item.quantity;
+                const displayRevenue = (parseFloat(displayQty || 0) * (item.snapshot_rate || 0)).toFixed(2);
+
+                return (
                 <div
                   key={item.id}
                   className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col md:flex-row gap-4 sm:gap-6 transition-colors hover:shadow-md"
@@ -117,53 +138,88 @@ export default function ValidatorDashboard() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 mt-3 sm:mt-4">
-                      <div className="bg-blue-50 dark:bg-blue-900/10 p-3 sm:p-4 rounded-lg sm:rounded-2xl border border-blue-100 dark:border-blue-800/20">
-                        <p className="text-xs text-blue-600 dark:text-blue-400 uppercase font-bold mb-1">
-                          Sugar
-                        </p>
-                        <p className="text-slate-700 dark:text-slate-300 font-mono text-xs sm:text-sm">
-                          {item.sugarQty}kg @ ₹{item.sugarPrice}
-                        </p>
-                        <p className="text-blue-700 dark:text-blue-300 font-bold mt-1 sm:mt-2">
-                          ₹{item.totalSugar.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="bg-teal-50 dark:bg-teal-900/10 p-3 sm:p-4 rounded-lg sm:rounded-2xl border border-teal-100 dark:border-teal-800/20">
-                        <p className="text-xs text-teal-600 dark:text-teal-400 uppercase font-bold mb-1">
-                          Salt
-                        </p>
-                        <p className="text-slate-700 dark:text-slate-300 font-mono text-xs sm:text-sm">
-                          {item.saltQty}kg @ ₹{item.saltPrice}
-                        </p>
-                        <p className="text-teal-700 dark:text-teal-300 font-bold mt-1 sm:mt-2">
-                          ₹{item.totalSalt.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="bg-slate-900 dark:bg-black p-3 sm:p-4 rounded-lg sm:rounded-2xl text-white flex flex-col justify-center items-center shadow-lg shadow-slate-500/10 dark:shadow-none">
-                        <p className="text-xs text-slate-400 uppercase font-bold mb-1">
-                          Grand Total
-                        </p>
-                        <p className="text-lg sm:text-2xl font-black">
-                          ₹{item.grandTotal.toFixed(2)}
-                        </p>
-                      </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                        {/* Work Order Info */}
+                        <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                            <p className="text-xs font-bold text-slate-500 uppercase mb-1">Work Order</p>
+                            <p className="text-slate-800 dark:text-white font-mono font-bold">{item.work_order_number}</p>
+                            <p className="text-slate-600 dark:text-slate-300 text-sm">{item.line_item_name}</p>
+                        </div>
+
+                        {/* Financials (Hidden from Supervisor) */}
+                        <div className="p-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100 dark:border-emerald-800/20">
+                            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase mb-1">Revenue Calculation</p>
+                            <div className="flex justify-between items-end">
+                                <div>
+                                    <p className="text-xs text-slate-500">Rate: ₹{item.snapshot_rate}/{item.uom}</p>
+                                    <p className="text-xs text-slate-500">Qty: {displayQty}</p>
+                                </div>
+                                <p className="text-xl font-black text-emerald-700 dark:text-emerald-300">₹{displayRevenue}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                        {/* Quantity Edit Section */}
+                        <div className="flex items-center gap-4">
+                            <div className="flex-1">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Quantity ({item.uom})</label>
+                                {isEditing ? (
+                                    <input 
+                                        type="number" 
+                                        className="w-full px-3 py-1.5 mt-1 bg-white dark:bg-slate-900 border border-blue-400 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                        value={editQuantity}
+                                        onChange={(e) => setEditQuantity(e.target.value)}
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-lg font-bold text-slate-800 dark:text-white">{item.quantity}</span>
+                                        {item.status === 'Pending' && (
+                                            <button onClick={() => startEditing(item)} className="p-1 text-slate-400 hover:text-blue-500 transition-colors">
+                                                <Edit2 size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Manpower Comparison */}
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <p className="text-xs font-bold text-slate-500 uppercase">Standard Manpower</p>
+                                <p className="text-slate-700 dark:text-slate-300">{item.snapshot_standard_manpower || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-slate-500 uppercase">Actual Manpower</p>
+                                <p className="text-slate-700 dark:text-slate-300">{item.actual_manpower}</p>
+                            </div>
+                        </div>
+
+                         {/* Materials */}
+                         {item.material_consumed && (
+                             <div>
+                                <p className="text-xs font-bold text-slate-500 uppercase">Material Consumed</p>
+                                <p className="text-slate-700 dark:text-slate-300 text-sm">{item.material_consumed}</p>
+                             </div>
+                         )}
                     </div>
 
                     {/* Evidence Photos */}
                     {item.evidencePhotos && item.evidencePhotos.length > 0 && (
-                      <div className="mt-3 sm:mt-4">
-                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 sm:mb-2 uppercase">
+                      <div className="mt-4">
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase">
                           Evidence:
                         </p>
-                        <div className="flex gap-1 sm:gap-2 overflow-x-auto pb-1 sm:pb-2">
+                        <div className="flex gap-2 overflow-x-auto pb-2">
                           {item.evidencePhotos.map((photo, idx) => (
                             <a
                               key={idx}
                               href={photo}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="block h-14 w-12 sm:h-16 sm:w-16 flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity"
+                              className="block h-16 w-16 flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity"
                             >
                               <img
                                 src={photo}
@@ -177,29 +233,17 @@ export default function ValidatorDashboard() {
                     )}
 
                     {(item.remarks || item.adminRemarks) && (
-                      <div className="mt-4 sm:mt-6 space-y-2 sm:space-y-3">
+                      <div className="mt-4 space-y-2">
                         {item.remarks && (
-                          <div className="flex items-start gap-2 text-xs sm:text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-red-100 dark:border-red-800/30">
-                            <AlertCircle
-                              size={14}
-                              sm:size={16}
-                              className="mt-0.5 flex-shrink-0"
-                            />
-                            <p>
-                              <strong>Validator:</strong> {item.remarks}
-                            </p>
+                          <div className="flex items-start gap-2 text-xs sm:text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg border border-red-100 dark:border-red-800/30">
+                            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                            <p><strong>Validator:</strong> {item.remarks}</p>
                           </div>
                         )}
                         {item.adminRemarks && (
-                          <div className="flex items-start gap-2 text-xs sm:text-sm text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-indigo-100 dark:border-indigo-800/30">
-                            <AlertCircle
-                              size={14}
-                              sm:size={16}
-                              className="mt-0.5 flex-shrink-0"
-                            />
-                            <p>
-                              <strong>Admin:</strong> {item.adminRemarks}
-                            </p>
+                          <div className="flex items-start gap-2 text-xs sm:text-sm text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg border border-indigo-100 dark:border-indigo-800/30">
+                            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                            <p><strong>Admin:</strong> {item.adminRemarks}</p>
                           </div>
                         )}
                       </div>
@@ -214,7 +258,7 @@ export default function ValidatorDashboard() {
                           onClick={() => handleStatus(item.id, "Approved")}
                           className="flex-1 md:flex-none bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-3 rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2"
                         >
-                          <Check size={18} /> Approve
+                          <Check size={18} /> {isEditing ? 'Save & Approve' : 'Approve'}
                         </button>
                         <button
                           onClick={() => setRejectModal(item.id)}
@@ -243,7 +287,7 @@ export default function ValidatorDashboard() {
                     )}
                   </div>
                 </div>
-              ))
+              )})
           )}
         </div>
       </main>
