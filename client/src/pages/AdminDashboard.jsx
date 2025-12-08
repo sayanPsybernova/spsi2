@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
+import UserFormModal from "../components/UserFormModal";
 import {
   MessageSquare,
   User,
@@ -10,19 +11,27 @@ import {
   Briefcase,
   Layers,
   Database,
-  FileText
+  FileText,
+  Users,
+  UserPlus,
+  Trash2
 } from "lucide-react";
 import { API_ENDPOINTS } from "../config/api";
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("submissions"); // 'submissions' or 'master'
+  const [activeTab, setActiveTab] = useState("submissions"); // 'submissions', 'master', 'users'
   const [submissions, setSubmissions] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
   const [lineItems, setLineItems] = useState([]);
+  const [users, setUsers] = useState([]);
 
   // Remark State
   const [remarkModal, setRemarkModal] = useState(null);
   const [adminRemark, setAdminRemark] = useState("");
+
+  // User Modal State
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [selectedRole, setSelectedRole] = useState("supervisor");
 
   // Master Data Forms
   const [newWO, setNewWO] = useState("");
@@ -37,6 +46,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchSubmissions();
     fetchMasterData();
+    fetchUsers();
   }, []);
 
   const fetchSubmissions = async () => {
@@ -58,6 +68,15 @@ export default function AdminDashboard() {
       setLineItems(liRes.data);
     } catch (err) {
       console.error("Failed to fetch master data:", err);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const res = await axios.get(API_ENDPOINTS.users);
+      setUsers(res.data);
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
     }
   };
 
@@ -95,6 +114,17 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteUser = async (id) => {
+      if(!window.confirm("Are you sure you want to delete this user?")) return;
+      try {
+          await axios.delete(`${API_ENDPOINTS.users}/${id}`);
+          fetchUsers();
+      } catch (err) {
+          console.error("Error deleting user:", err);
+          alert("Failed to delete user");
+      }
+  };
+
   const handleRemark = async () => {
     try {
       await axios.put(
@@ -123,14 +153,14 @@ export default function AdminDashboard() {
               Admin Dashboard
             </h1>
             <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400">
-              Manage master data and view approved submissions.
+              Manage master data, users, and view approved submissions.
             </p>
           </div>
           
-          <div className="flex p-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="flex p-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto max-w-full">
             <button
               onClick={() => setActiveTab("submissions")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
                 activeTab === "submissions"
                   ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
                   : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
@@ -139,8 +169,18 @@ export default function AdminDashboard() {
               <FileText size={16} /> Submissions
             </button>
             <button
+              onClick={() => setActiveTab("users")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
+                activeTab === "users"
+                  ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              <Users size={16} /> User Management
+            </button>
+            <button
               onClick={() => setActiveTab("master")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
                 activeTab === "master"
                   ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
                   : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
@@ -239,6 +279,68 @@ export default function AdminDashboard() {
                 </div>
               ))}
           </div>
+        )}
+
+        {/* --- User Management View --- */}
+        {activeTab === "users" && (
+            <div className="space-y-6">
+                <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">System Users</h2>
+                        <p className="text-sm text-slate-500">Manage access for Supervisors, Validators, and Admins.</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <select 
+                            className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                            value={selectedRole}
+                            onChange={(e) => setSelectedRole(e.target.value)}
+                        >
+                            <option value="supervisor">Supervisor</option>
+                            <option value="validator">Validator</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <button 
+                            onClick={() => setShowUserModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/25"
+                        >
+                            <UserPlus size={18} /> Add User
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {users.map(u => (
+                        <div key={u.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-start gap-4 hover:shadow-md transition-all">
+                             <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex-shrink-0">
+                                {u.image ? (
+                                    <img src={u.image} alt={u.name} className="h-full w-full object-cover" />
+                                ) : (
+                                    <div className="h-full w-full flex items-center justify-center text-slate-400">
+                                        <User size={24} />
+                                    </div>
+                                )}
+                             </div>
+                             <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-slate-900 dark:text-white truncate">{u.name}</h3>
+                                <p className="text-xs text-slate-500 font-mono mb-1">{u.emp_id}</p>
+                                <span className={`inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
+                                    u.role === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
+                                    u.role === 'validator' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
+                                    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                }`}>
+                                    {u.role}
+                                </span>
+                             </div>
+                             <button 
+                                onClick={() => handleDeleteUser(u.id)}
+                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                             >
+                                <Trash2 size={18} />
+                             </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
         )}
 
         {/* --- Master Data View --- */}
@@ -393,6 +495,18 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* User Form Modal */}
+      {showUserModal && (
+          <UserFormModal 
+              role={selectedRole}
+              onClose={() => setShowUserModal(false)}
+              onSuccess={() => {
+                  fetchUsers();
+                  setShowUserModal(false);
+              }}
+          />
       )}
     </div>
   );
