@@ -1,0 +1,50 @@
+[
+  {
+    "id": "super-admin-001",
+    "name": "Super Admin",
+    "email": "pradhansayan2@gmail.com",
+    "password": "Sayan@0306",
+    "role": "superadmin",
+    "image": ""
+  },
+  {
+    "id": "ddf2eccd-f0fd-4c10-895f-0cd2d4e76221",
+    "name": "supervisor",
+    "phone": "455",
+    "email": "supervisor@gmail.com",
+    "userId": "supervisor@gmail.com",
+    "password": "supervisor@0306",
+    "role": "supervisor",
+    "image": "/uploads/1764836108249-953152234.png"
+  },
+  {
+    "id": "d5c70a42-5126-41ad-a28f-f0248fb45aef",
+    "name": "validator",
+    "phone": "123",
+    "email": "validator@gmail.com",
+    "userId": "validator@gmail.com",
+    "password": "validator@0306",
+    "role": "validator",
+    "image": ""
+  },
+  {
+    "id": "b4750d61-beb3-424e-b21f-a5b57ae347ef",
+    "name": "Admin",
+    "phone": "456",
+    "email": "admin@gmail.com",
+    "userId": "admin@gmail.com",
+    "password": "admin@0306",
+    "role": "admin",
+    "image": ""
+  },
+  {
+    "id": "c8ea439b-3d0d-46f2-b533-d4eca33bc080",
+    "name": "indrasis",
+    "phone": "45455",
+    "email": "supervisor3@gmail.com",
+    "userId": "supervisor3@gmail.com",
+    "password": "supervisor@0306",
+    "role": "supervisor",
+    "image": "/uploads/1764837924401-225066261.png"
+  }
+]

@@ -1,0 +1,23 @@
+[build]
+  base = "."
+  publish = "client/dist"
+  command = "npm run build"
+  functions = "server/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+  [functions.timeout]
+    duration = 26
+
+# API Redirects
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# SPA Fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
