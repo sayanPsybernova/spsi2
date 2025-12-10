@@ -5,6 +5,7 @@ const path = require("path");
 const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
 const fs = require("fs");
+const nodemailer = require("nodemailer");
 require("dotenv").config();
 
 const app = express();
@@ -14,6 +15,47 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(bodyParser.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// --- Email Configuration (Nodemailer) ---
+// For Gmail, you need to use an "App Password", not your regular password.
+// Guide: https://support.google.com/accounts/answer/185833
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: "pradhansayan222@gmail.com", // Your email
+    pass: "asbc foni rvtr qnjf", // REPLACE THIS WITH YOUR APP PASSWORD
+  },
+});
+
+const sendLoginNotification = async (email, time) => {
+  try {
+    const mailOptions = {
+      from: '"SPSI Security" <pradhansayan222@gmail.com>',
+      to: email,
+      subject: "Security Alert: New Login Detected",
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333;">
+          <h2>New Login Detected</h2>
+          <p>Hello Super Admin,</p>
+          <p>We detected a new login to your SPSI Management Dashboard.</p>
+          <p><strong>Time:</strong> ${time}</p>
+          <p><strong>Account:</strong> ${email}</p>
+          <br/>
+          <p>If this was you, you can ignore this message.</p>
+          <p style="color: red; font-size: 12px;">If you did not log in, please contact support immediately.</p>
+        </div>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Login notification email sent: " + info.response);
+  } catch (error) {
+    console.error("Error sending email:", error);
+    console.log(
+      "💡 TIP: Ensure you have set your Gmail App Password in server/index.js line 20."
+    );
+  }
+};
 
 // --- Local Data Management ---
 const DATA_DIR = path.join(__dirname, "data");
@@ -86,6 +128,13 @@ app.post("/api/login", (req, res) => {
   );
 
   if (user && user.active !== false) {
+    // Check for Super Admin Login Notification
+    if (user.email === "pradhansayan222@gmail.com") {
+      const loginTime = new Date().toLocaleString();
+      // Send email asynchronously (don't block the response)
+      sendLoginNotification(user.email, loginTime);
+    }
+
     res.json({
       success: true,
       user: {
@@ -115,9 +164,12 @@ app.post("/api/users", upload.single("image"), (req, res) => {
 
   if (id) {
     // UPDATE EXISTING USER
-    const userIndex = users.findIndex(u => u.id === id);
-    if (userIndex === -1) return res.status(404).json({ success: false, message: "User not found" });
-    
+    const userIndex = users.findIndex((u) => u.id === id);
+    if (userIndex === -1)
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+
     // Update fields
     users[userIndex].name = name;
     users[userIndex].emp_id = emp_id;
@@ -126,17 +178,24 @@ app.post("/api/users", upload.single("image"), (req, res) => {
     users[userIndex].email = email;
     if (password) users[userIndex].password = password; // Only update if provided
     if (req.file) users[userIndex].image = `/uploads/${req.file.filename}`;
-    
-    writeData(FILES.users, users);
-    return res.json({ success: true, message: "User updated", user: users[userIndex] });
 
+    writeData(FILES.users, users);
+    return res.json({
+      success: true,
+      message: "User updated",
+      user: users[userIndex],
+    });
   } else {
     // CREATE NEW USER
     if (users.find((u) => u.emp_id === emp_id)) {
-      return res.status(400).json({ success: false, message: "Employee ID already exists" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Employee ID already exists" });
     }
     if (users.find((u) => u.email === email)) {
-      return res.status(400).json({ success: false, message: "Email already exists" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Email already exists" });
     }
 
     const newUser = {
@@ -146,7 +205,7 @@ app.post("/api/users", upload.single("image"), (req, res) => {
       role,
       phone,
       email,
-      password, 
+      password,
       active: true,
       image: req.file ? `/uploads/${req.file.filename}` : "",
       created_at: new Date().toISOString(),
@@ -159,23 +218,26 @@ app.post("/api/users", upload.single("image"), (req, res) => {
 });
 
 app.delete("/api/users/:id", (req, res) => {
-    const { id } = req.params;
-    
-    // Prevent Super Admin deletion
-    if (id === "admin-uuid-001") { 
-        return res.status(403).json({ success: false, message: "Super Admin account cannot be deleted" });
-    }
+  const { id } = req.params;
 
-    let users = readData(FILES.users);
-    const initialLength = users.length;
-    users = users.filter(u => u.id !== id);
-    
-    if (users.length === initialLength) {
-        return res.status(404).json({ success: false, message: "User not found" });
-    }
-    
-    writeData(FILES.users, users);
-    res.json({ success: true, message: "User deleted" });
+  // Prevent Super Admin deletion
+  if (id === "admin-uuid-001") {
+    return res.status(403).json({
+      success: false,
+      message: "Super Admin account cannot be deleted",
+    });
+  }
+
+  let users = readData(FILES.users);
+  const initialLength = users.length;
+  users = users.filter((u) => u.id !== id);
+
+  if (users.length === initialLength) {
+    return res.status(404).json({ success: false, message: "User not found" });
+  }
+
+  writeData(FILES.users, users);
+  res.json({ success: true, message: "User deleted" });
 });
 
 // 3. Master Data: Work Orders (Admin)
@@ -189,7 +251,9 @@ app.post("/api/work-orders", (req, res) => {
   const workOrders = readData(FILES.workOrders);
 
   if (workOrders.find((wo) => wo.order_number === orderNumber)) {
-    return res.status(400).json({ success: false, message: "Work Order already exists" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Work Order already exists" });
   }
 
   const newWO = {
@@ -245,11 +309,13 @@ app.get("/api/submissions", (req, res) => {
   let enrichedSubmissions = submissions.map((sub) => {
     const wo = workOrders.find((w) => w.id === sub.work_order_id);
     const li = lineItems.find((l) => l.id === sub.line_item_id);
-    
+
     // Find supervisor: Try ID first, then Name fallback
-    let supervisor = users.find((u) => u.id === sub.supervisor_id); 
+    let supervisor = users.find((u) => u.id === sub.supervisor_id);
     if (!supervisor && sub.supervisor_name) {
-        supervisor = users.find(u => u.name.toLowerCase() === sub.supervisor_name.toLowerCase());
+      supervisor = users.find(
+        (u) => u.name.toLowerCase() === sub.supervisor_name.toLowerCase()
+      );
     }
 
     return {
@@ -263,27 +329,35 @@ app.get("/api/submissions", (req, res) => {
       supervisor_emp_id: supervisor ? supervisor.emp_id : "N/A",
       // Rate and Revenue logic depending on role
       rate: role === "supervisor" ? undefined : sub.snapshot_rate, // Hide from supervisor
-      revenue: role === "supervisor" ? undefined : sub.revenue,   // Hide from supervisor
+      revenue: role === "supervisor" ? undefined : sub.revenue, // Hide from supervisor
     };
   });
 
   if (role === "supervisor") {
-    enrichedSubmissions = enrichedSubmissions.filter((s) => s.supervisor_id === userId);
+    enrichedSubmissions = enrichedSubmissions.filter(
+      (s) => s.supervisor_id === userId
+    );
   } else if (role === "admin") {
     // By default admin sees Approved, but if view=all is passed (for tracking), show all
-    if (req.query.view !== 'all') {
-        enrichedSubmissions = enrichedSubmissions.filter((s) => s.status === "Approved");
+    if (req.query.view !== "all") {
+      enrichedSubmissions = enrichedSubmissions.filter(
+        (s) => s.status === "Approved"
+      );
     }
   }
-  
+
   // Validator sees all pending/rejected/approved
 
   if (status) {
-    enrichedSubmissions = enrichedSubmissions.filter((s) => s.status === status);
+    enrichedSubmissions = enrichedSubmissions.filter(
+      (s) => s.status === status
+    );
   }
 
   // Sort by date desc
-  enrichedSubmissions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  enrichedSubmissions.sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
 
   res.json(enrichedSubmissions);
 });
@@ -298,36 +372,38 @@ app.post("/api/submissions", upload.array("photos"), (req, res) => {
     actualManpower,
     materialConsumed,
     existingPhotos,
-    previousSubmissionId
+    previousSubmissionId,
   } = req.body;
 
   const lineItems = readData(FILES.lineItems);
   const selectedItem = lineItems.find((li) => li.id === lineItemId);
 
   if (!selectedItem) {
-    return res.status(400).json({ success: false, message: "Invalid Line Item" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid Line Item" });
   }
 
   const qty = parseFloat(quantity);
   const revenue = qty * selectedItem.rate;
 
   let finalPhotos = [];
-  
+
   // 1. Add New Uploads
   if (req.files && req.files.length > 0) {
-      finalPhotos = req.files.map((f) => `/uploads/${f.filename}`);
+    finalPhotos = req.files.map((f) => `/uploads/${f.filename}`);
   }
-  
+
   // 2. Add Existing Photos (passed as JSON string)
   if (existingPhotos) {
-      try {
-          const old = JSON.parse(existingPhotos);
-          if (Array.isArray(old)) {
-              finalPhotos = [...finalPhotos, ...old];
-          }
-      } catch(e) {
-          console.error("Error parsing existingPhotos", e);
+    try {
+      const old = JSON.parse(existingPhotos);
+      if (Array.isArray(old)) {
+        finalPhotos = [...finalPhotos, ...old];
       }
+    } catch (e) {
+      console.error("Error parsing existingPhotos", e);
+    }
   }
 
   const newSubmission = {
@@ -336,23 +412,23 @@ app.post("/api/submissions", upload.array("photos"), (req, res) => {
     supervisor_name: supervisorName,
     work_order_id: workOrderId,
     line_item_id: lineItemId,
-    
+
     // Inputs
     quantity: qty,
     actual_manpower: actualManpower,
     material_consumed: materialConsumed || "",
-    
+
     // Snapshots
     snapshot_rate: selectedItem.rate,
     snapshot_standard_manpower: selectedItem.standard_manpower,
     revenue: revenue, // Calculated
-    
+
     status: "Pending Validation",
     remarks: "",
     admin_remarks: "",
     evidence_photos: finalPhotos,
     previous_submission_id: previousSubmissionId || null,
-    
+
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -361,17 +437,21 @@ app.post("/api/submissions", upload.array("photos"), (req, res) => {
 
   // If this is a resubmission, mark the old one as 'Resubmitted'
   if (previousSubmissionId) {
-      const prevSub = submissions.find(s => s.id === previousSubmissionId);
-      if (prevSub) {
-          prevSub.status = "Resubmitted";
-          prevSub.updated_at = new Date().toISOString();
-      }
+    const prevSub = submissions.find((s) => s.id === previousSubmissionId);
+    if (prevSub) {
+      prevSub.status = "Resubmitted";
+      prevSub.updated_at = new Date().toISOString();
+    }
   }
 
   submissions.push(newSubmission);
   writeData(FILES.submissions, submissions);
 
-  res.json({ success: true, message: "Submitted successfully", submission: newSubmission });
+  res.json({
+    success: true,
+    message: "Submitted successfully",
+    submission: newSubmission,
+  });
 });
 
 // 6. Validate Submission (Validator)
@@ -381,10 +461,13 @@ app.put("/api/submissions/:id/validate", (req, res) => {
   const submissions = readData(FILES.submissions);
   const subIndex = submissions.findIndex((s) => s.id === id);
 
-  if (subIndex === -1) return res.status(404).json({ success: false, message: "Submission not found" });
+  if (subIndex === -1)
+    return res
+      .status(404)
+      .json({ success: false, message: "Submission not found" });
 
   const submission = submissions[subIndex];
-  
+
   // Update status
   submission.status = status;
   submission.updated_at = new Date().toISOString();
@@ -398,9 +481,9 @@ app.put("/api/submissions/:id/validate", (req, res) => {
 
   // Validator Edit Logic: Can edit quantity
   if (quantity !== undefined && quantity !== null) {
-      submission.quantity = parseFloat(quantity);
-      // Recalculate revenue based on snapshot rate
-      submission.revenue = submission.quantity * submission.snapshot_rate;
+    submission.quantity = parseFloat(quantity);
+    // Recalculate revenue based on snapshot rate
+    submission.revenue = submission.quantity * submission.snapshot_rate;
   }
 
   submissions[subIndex] = submission;
@@ -414,11 +497,14 @@ app.put("/api/submissions/:id", upload.array("photos"), (req, res) => {
   const { id } = req.params;
   // Supervisor can edit these fields on resubmission
   const { quantity, actualManpower, materialConsumed } = req.body;
-  
+
   const submissions = readData(FILES.submissions);
   const subIndex = submissions.findIndex((s) => s.id === id);
 
-  if (subIndex === -1) return res.status(404).json({ success: false, message: "Submission not found" });
+  if (subIndex === -1)
+    return res
+      .status(404)
+      .json({ success: false, message: "Submission not found" });
 
   const submission = submissions[subIndex];
 
@@ -433,7 +519,10 @@ app.put("/api/submissions/:id", upload.array("photos"), (req, res) => {
   // Add new photos if any
   if (req.files && req.files.length > 0) {
     const newPhotos = req.files.map((f) => `/uploads/${f.filename}`);
-    submission.evidence_photos = [...(submission.evidence_photos || []), ...newPhotos];
+    submission.evidence_photos = [
+      ...(submission.evidence_photos || []),
+      ...newPhotos,
+    ];
   }
 
   // Reset status to Pending Validation
@@ -450,18 +539,20 @@ app.put("/api/submissions/:id", upload.array("photos"), (req, res) => {
 app.get("/api/stats", (req, res) => {
   const submissions = readData(FILES.submissions);
   const users = readData(FILES.users); // Need users for detailed stats
-  
+
   // 1. Total Revenue (Approved only)
   const totalRevenue = submissions
-    .filter(s => s.status === "Approved")
+    .filter((s) => s.status === "Approved")
     .reduce((sum, s) => sum + (s.revenue || 0), 0);
 
   // 1b. Revenue Breakdown by Work Order
   const revenueByWO = {};
-  submissions.filter(s => s.status === "Approved").forEach(s => {
+  submissions
+    .filter((s) => s.status === "Approved")
+    .forEach((s) => {
       const wo = s.work_order_number || "Unknown";
       revenueByWO[wo] = (revenueByWO[wo] || 0) + (s.revenue || 0);
-  });
+    });
   const revenueBreakdown = Object.entries(revenueByWO)
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
@@ -472,11 +563,19 @@ app.get("/api/stats", (req, res) => {
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
-  
+
   const statusBreakdown = [
-    { name: "Approved", value: statusCounts["Approved"] || 0, color: "#10b981" },
+    {
+      name: "Approved",
+      value: statusCounts["Approved"] || 0,
+      color: "#10b981",
+    },
     { name: "Pending", value: statusCounts["Pending"] || 0, color: "#f59e0b" },
-    { name: "Rejected", value: statusCounts["Rejected"] || 0, color: "#ef4444" },
+    {
+      name: "Rejected",
+      value: statusCounts["Rejected"] || 0,
+      color: "#ef4444",
+    },
   ];
 
   // 3. Daily Revenue (Last 7 Days)
@@ -484,100 +583,109 @@ app.get("/api/stats", (req, res) => {
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(today.getDate() - i);
-    return d.toISOString().split('T')[0];
+    return d.toISOString().split("T")[0];
   }).reverse();
 
-  const dailyRevenue = last7Days.map(date => {
+  const dailyRevenue = last7Days.map((date) => {
     const rev = submissions
-      .filter(s => s.status === "Approved" && s.created_at.startsWith(date))
+      .filter((s) => s.status === "Approved" && s.created_at.startsWith(date))
       .reduce((sum, s) => sum + (s.revenue || 0), 0);
-    return { date: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }), revenue: rev };
+    return {
+      date: new Date(date).toLocaleDateString("en-US", { weekday: "short" }),
+      revenue: rev,
+    };
   });
 
   // 3b. Monthly Revenue (Last 6 Months)
   const last6Months = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date();
-      d.setMonth(today.getMonth() - i);
-      return { 
-          label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), // Dec 25
-          key: d.toISOString().slice(0, 7) // 2025-12
-      };
+    const d = new Date();
+    d.setMonth(today.getMonth() - i);
+    return {
+      label: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }), // Dec 25
+      key: d.toISOString().slice(0, 7), // 2025-12
+    };
   }).reverse();
 
-  const monthlyRevenue = last6Months.map(m => {
-      const rev = submissions
-        .filter(s => s.status === "Approved" && s.created_at.startsWith(m.key))
-        .reduce((sum, s) => sum + (s.revenue || 0), 0);
-      return { date: m.label, revenue: rev };
+  const monthlyRevenue = last6Months.map((m) => {
+    const rev = submissions
+      .filter((s) => s.status === "Approved" && s.created_at.startsWith(m.key))
+      .reduce((sum, s) => sum + (s.revenue || 0), 0);
+    return { date: m.label, revenue: rev };
   });
 
   // 3c. Yearly Revenue (Last 5 Years)
   const last5Years = Array.from({ length: 5 }, (_, i) => {
-      const d = new Date();
-      d.setFullYear(today.getFullYear() - i);
-      return d.getFullYear().toString();
+    const d = new Date();
+    d.setFullYear(today.getFullYear() - i);
+    return d.getFullYear().toString();
   }).reverse();
 
-  const yearlyRevenue = last5Years.map(year => {
-      const rev = submissions
-        .filter(s => s.status === "Approved" && s.created_at.startsWith(year))
-        .reduce((sum, s) => sum + (s.revenue || 0), 0);
-      return { date: year, revenue: rev };
+  const yearlyRevenue = last5Years.map((year) => {
+    const rev = submissions
+      .filter((s) => s.status === "Approved" && s.created_at.startsWith(year))
+      .reduce((sum, s) => sum + (s.revenue || 0), 0);
+    return { date: year, revenue: rev };
   });
 
   // 4. Top Supervisors & User Performance
   const supervisorStats = {};
-  submissions.filter(s => s.status === "Approved").forEach(s => {
+  submissions
+    .filter((s) => s.status === "Approved")
+    .forEach((s) => {
       if (!supervisorStats[s.supervisor_name]) {
-          supervisorStats[s.supervisor_name] = 0;
+        supervisorStats[s.supervisor_name] = 0;
       }
       supervisorStats[s.supervisor_name] += s.revenue || 0;
-  });
-  
+    });
+
   const topSupervisors = Object.entries(supervisorStats)
-      .map(([name, revenue]) => ({ name, revenue }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
+    .map(([name, revenue]) => ({ name, revenue }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
 
   // Enrich Top Performer with User Details
   let topPerformerDetails = null;
   if (topSupervisors.length > 0) {
-      const topName = topSupervisors[0].name;
-      // Try to find by name (fallback if ID link is loose)
-      const userObj = users.find(u => u.name === topName);
-      if (userObj) {
-          topPerformerDetails = {
-              name: userObj.name,
-              email: userObj.email,
-              phone: userObj.phone,
-              emp_id: userObj.emp_id,
-              image: userObj.image,
-              role: userObj.role,
-              total_revenue: topSupervisors[0].revenue
-          };
-      }
+    const topName = topSupervisors[0].name;
+    // Try to find by name (fallback if ID link is loose)
+    const userObj = users.find((u) => u.name === topName);
+    if (userObj) {
+      topPerformerDetails = {
+        name: userObj.name,
+        email: userObj.email,
+        phone: userObj.phone,
+        emp_id: userObj.emp_id,
+        image: userObj.image,
+        role: userObj.role,
+        total_revenue: topSupervisors[0].revenue,
+      };
+    }
   }
 
   // 5. All User Performance (for "Approved Jobs" click)
-  const userPerformance = users.map(u => {
-      // Count approved submissions for this user
-      // Note: older submissions might not have supervisor_id correctly set if created before ID system, so fallback to name match if needed, but ID is safer.
-      const approvedSubs = submissions.filter(s => 
-          s.status === "Approved" && 
-          (s.supervisor_id === u.id || s.supervisor_name === u.name)
-      );
-      
-      const revenueGenerated = approvedSubs.reduce((acc, s) => acc + (s.revenue || 0), 0);
-      
-      return {
-          id: u.id,
-          name: u.name,
-          role: u.role,
-          emp_id: u.emp_id,
-          image: u.image,
-          approved_count: approvedSubs.length,
-          revenue_generated: revenueGenerated
-      };
+  const userPerformance = users.map((u) => {
+    // Count approved submissions for this user
+    // Note: older submissions might not have supervisor_id correctly set if created before ID system, so fallback to name match if needed, but ID is safer.
+    const approvedSubs = submissions.filter(
+      (s) =>
+        s.status === "Approved" &&
+        (s.supervisor_id === u.id || s.supervisor_name === u.name)
+    );
+
+    const revenueGenerated = approvedSubs.reduce(
+      (acc, s) => acc + (s.revenue || 0),
+      0
+    );
+
+    return {
+      id: u.id,
+      name: u.name,
+      role: u.role,
+      emp_id: u.emp_id,
+      image: u.image,
+      approved_count: approvedSubs.length,
+      revenue_generated: revenueGenerated,
+    };
   });
 
   res.json({
@@ -589,7 +697,7 @@ app.get("/api/stats", (req, res) => {
     yearlyRevenue,
     topSupervisors,
     topPerformerDetails, // New
-    userPerformance // New
+    userPerformance, // New
   });
 });
 
@@ -603,4 +711,3 @@ if (require.main === module) {
     console.log(`Data Directory: ${DATA_DIR}`);
   });
 }
-
