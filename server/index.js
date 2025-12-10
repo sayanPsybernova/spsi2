@@ -255,7 +255,10 @@ app.get("/api/submissions", (req, res) => {
   if (role === "supervisor") {
     enrichedSubmissions = enrichedSubmissions.filter((s) => s.supervisor_id === userId);
   } else if (role === "admin") {
-    enrichedSubmissions = enrichedSubmissions.filter((s) => s.status === "Approved");
+    // By default admin sees Approved, but if view=all is passed (for tracking), show all
+    if (req.query.view !== 'all') {
+        enrichedSubmissions = enrichedSubmissions.filter((s) => s.status === "Approved");
+    }
   }
   
   // Validator sees all pending/rejected/approved
@@ -426,6 +429,153 @@ app.put("/api/submissions/:id", upload.array("photos"), (req, res) => {
   writeData(FILES.submissions, submissions);
 
   res.json({ success: true, message: "Resubmitted successfully", submission });
+});
+
+// 8. Dashboard Stats (Admin)
+app.get("/api/stats", (req, res) => {
+  const submissions = readData(FILES.submissions);
+  const users = readData(FILES.users); // Need users for detailed stats
+  
+  // 1. Total Revenue (Approved only)
+  const totalRevenue = submissions
+    .filter(s => s.status === "Approved")
+    .reduce((sum, s) => sum + (s.revenue || 0), 0);
+
+  // 1b. Revenue Breakdown by Work Order
+  const revenueByWO = {};
+  submissions.filter(s => s.status === "Approved").forEach(s => {
+      const wo = s.work_order_number || "Unknown";
+      revenueByWO[wo] = (revenueByWO[wo] || 0) + (s.revenue || 0);
+  });
+  const revenueBreakdown = Object.entries(revenueByWO)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  // 2. Status Breakdown (All)
+  const statusCounts = submissions.reduce((acc, s) => {
+    const status = s.status === "Pending Validation" ? "Pending" : s.status;
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+  
+  const statusBreakdown = [
+    { name: "Approved", value: statusCounts["Approved"] || 0, color: "#10b981" },
+    { name: "Pending", value: statusCounts["Pending"] || 0, color: "#f59e0b" },
+    { name: "Rejected", value: statusCounts["Rejected"] || 0, color: "#ef4444" },
+  ];
+
+  // 3. Daily Revenue (Last 7 Days)
+  const today = new Date();
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(today.getDate() - i);
+    return d.toISOString().split('T')[0];
+  }).reverse();
+
+  const dailyRevenue = last7Days.map(date => {
+    const rev = submissions
+      .filter(s => s.status === "Approved" && s.created_at.startsWith(date))
+      .reduce((sum, s) => sum + (s.revenue || 0), 0);
+    return { date: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }), revenue: rev };
+  });
+
+  // 3b. Monthly Revenue (Last 6 Months)
+  const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date();
+      d.setMonth(today.getMonth() - i);
+      return { 
+          label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), // Dec 25
+          key: d.toISOString().slice(0, 7) // 2025-12
+      };
+  }).reverse();
+
+  const monthlyRevenue = last6Months.map(m => {
+      const rev = submissions
+        .filter(s => s.status === "Approved" && s.created_at.startsWith(m.key))
+        .reduce((sum, s) => sum + (s.revenue || 0), 0);
+      return { date: m.label, revenue: rev };
+  });
+
+  // 3c. Yearly Revenue (Last 5 Years)
+  const last5Years = Array.from({ length: 5 }, (_, i) => {
+      const d = new Date();
+      d.setFullYear(today.getFullYear() - i);
+      return d.getFullYear().toString();
+  }).reverse();
+
+  const yearlyRevenue = last5Years.map(year => {
+      const rev = submissions
+        .filter(s => s.status === "Approved" && s.created_at.startsWith(year))
+        .reduce((sum, s) => sum + (s.revenue || 0), 0);
+      return { date: year, revenue: rev };
+  });
+
+  // 4. Top Supervisors & User Performance
+  const supervisorStats = {};
+  submissions.filter(s => s.status === "Approved").forEach(s => {
+      if (!supervisorStats[s.supervisor_name]) {
+          supervisorStats[s.supervisor_name] = 0;
+      }
+      supervisorStats[s.supervisor_name] += s.revenue || 0;
+  });
+  
+  const topSupervisors = Object.entries(supervisorStats)
+      .map(([name, revenue]) => ({ name, revenue }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+
+  // Enrich Top Performer with User Details
+  let topPerformerDetails = null;
+  if (topSupervisors.length > 0) {
+      const topName = topSupervisors[0].name;
+      // Try to find by name (fallback if ID link is loose)
+      const userObj = users.find(u => u.name === topName);
+      if (userObj) {
+          topPerformerDetails = {
+              name: userObj.name,
+              email: userObj.email,
+              phone: userObj.phone,
+              emp_id: userObj.emp_id,
+              image: userObj.image,
+              role: userObj.role,
+              total_revenue: topSupervisors[0].revenue
+          };
+      }
+  }
+
+  // 5. All User Performance (for "Approved Jobs" click)
+  const userPerformance = users.map(u => {
+      // Count approved submissions for this user
+      // Note: older submissions might not have supervisor_id correctly set if created before ID system, so fallback to name match if needed, but ID is safer.
+      const approvedSubs = submissions.filter(s => 
+          s.status === "Approved" && 
+          (s.supervisor_id === u.id || s.supervisor_name === u.name)
+      );
+      
+      const revenueGenerated = approvedSubs.reduce((acc, s) => acc + (s.revenue || 0), 0);
+      
+      return {
+          id: u.id,
+          name: u.name,
+          role: u.role,
+          emp_id: u.emp_id,
+          image: u.image,
+          approved_count: approvedSubs.length,
+          revenue_generated: revenueGenerated
+      };
+  });
+
+  res.json({
+    totalRevenue,
+    revenueBreakdown, // New
+    statusBreakdown,
+    dailyRevenue,
+    monthlyRevenue,
+    yearlyRevenue,
+    topSupervisors,
+    topPerformerDetails, // New
+    userPerformance // New
+  });
 });
 
 // Export app for Netlify Functions (Optional, but good for structure)
