@@ -121,7 +121,7 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 ml-1">User ID / Email</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 ml-1">Email Address</label>
               <div className="relative group">
                  <User className="absolute left-4 top-3.5 h-5 w-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
                  <input
@@ -129,7 +129,7 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-500 transition-all outline-none dark:text-white placeholder:text-slate-400 font-medium"
-                    placeholder="Enter your ID"
+                    placeholder="Enter your email"
                     required
                  />
               </div>

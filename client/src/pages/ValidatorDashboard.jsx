@@ -122,11 +122,16 @@ export default function ValidatorDashboard() {
                     <div className="flex justify-between mb-4">
                       <div>
                         <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                          {item.supervisorName}
+                          {item.supervisor_name || item.supervisorName}
                         </h3>
-                        <p className="text-xs text-slate-400 dark:text-slate-500">
-                          ID: {item.supervisorId}
-                        </p>
+                        <div className="flex flex-col gap-0.5 mt-1">
+                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <span className="opacity-70">Email:</span> {item.supervisor_email || "N/A"}
+                            </p>
+                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <span className="opacity-70">ID:</span> <span className="font-mono">{item.supervisor_emp_id || item.supervisorId || "N/A"}</span>
+                            </p>
+                        </div>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-bold text-slate-500 dark:text-slate-400">

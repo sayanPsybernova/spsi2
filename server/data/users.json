@@ -53,5 +53,17 @@
     "active": true,
     "image": "/uploads/1765357140544-276652314.png",
     "created_at": "2025-12-10T08:59:00.556Z"
+  },
+  {
+    "id": "8dfb971b-30b6-4902-abc5-ffd24b7e4579",
+    "name": "sayan",
+    "emp_id": "2",
+    "role": "supervisor",
+    "phone": "1233",
+    "email": "s2@gmail.com",
+    "password": "123",
+    "active": true,
+    "image": "",
+    "created_at": "2025-12-10T11:46:34.852Z"
   }
 ]

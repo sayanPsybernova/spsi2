@@ -7,6 +7,7 @@ import { API_ENDPOINTS } from "../config/api";
 export default function UserFormModal({ role, userToEdit, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
     name: userToEdit?.name || "",
+    email: userToEdit?.email || "",
     phone: userToEdit?.phone || "",
     emp_id: userToEdit?.emp_id || "",
     password: userToEdit?.password || "", // Pre-fill password for viewing/editing
@@ -29,6 +30,7 @@ export default function UserFormModal({ role, userToEdit, onClose, onSuccess }) 
     const data = new FormData();
     if (userToEdit) data.append("id", userToEdit.id);
     data.append("name", formData.name);
+    data.append("email", formData.email);
     data.append("phone", formData.phone);
     data.append("emp_id", formData.emp_id);
     data.append("password", formData.password);
@@ -123,6 +125,20 @@ export default function UserFormModal({ role, userToEdit, onClose, onSuccess }) 
                 value={formData.name}
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Email (Login ID)
+              </label>
+              <input
+                required
+                type="email"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:text-white placeholder-slate-400 text-sm"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
                 }
               />
             </div>

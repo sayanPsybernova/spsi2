@@ -333,11 +333,11 @@ export default function AdminDashboard() {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-slate-900 dark:text-white truncate">{u.name}</h3>
-                                        <p className="text-xs text-slate-500 font-mono mb-1">{u.emp_id}</p>
-                                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
-                                            u.role === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
+                                                                 <div className="flex-1 min-w-0">
+                                                                    <h3 className="font-bold text-slate-900 dark:text-white truncate">{u.name}</h3>
+                                                                    <p className="text-xs text-slate-500 mb-0.5">{u.email}</p>
+                                                                    <p className="text-xs text-slate-400 font-mono mb-1">{u.emp_id}</p>
+                                                                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${                                            u.role === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
                                             u.role === 'validator' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
                                             'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                                         }`}>

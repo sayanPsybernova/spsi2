@@ -135,6 +135,9 @@ app.post("/api/users", upload.single("image"), (req, res) => {
     if (users.find((u) => u.emp_id === emp_id)) {
       return res.status(400).json({ success: false, message: "Employee ID already exists" });
     }
+    if (users.find((u) => u.email === email)) {
+      return res.status(400).json({ success: false, message: "Email already exists" });
+    }
 
     const newUser = {
       id: uuidv4(),
@@ -236,16 +239,28 @@ app.get("/api/submissions", (req, res) => {
   let submissions = readData(FILES.submissions);
   const workOrders = readData(FILES.workOrders);
   const lineItems = readData(FILES.lineItems);
+  const users = readData(FILES.users); // Load users to get supervisor details
 
   // Join data for convenience
   let enrichedSubmissions = submissions.map((sub) => {
     const wo = workOrders.find((w) => w.id === sub.work_order_id);
     const li = lineItems.find((l) => l.id === sub.line_item_id);
+    
+    // Find supervisor: Try ID first, then Name fallback
+    let supervisor = users.find((u) => u.id === sub.supervisor_id); 
+    if (!supervisor && sub.supervisor_name) {
+        supervisor = users.find(u => u.name.toLowerCase() === sub.supervisor_name.toLowerCase());
+    }
+
     return {
       ...sub,
       work_order_number: wo ? wo.order_number : "Unknown",
       line_item_name: li ? li.name : "Unknown",
       uom: li ? li.uom : "",
+      // Enrich with full supervisor details
+      supervisor_name: supervisor ? supervisor.name : sub.supervisor_name, // Fallback to existing if not found
+      supervisor_email: supervisor ? supervisor.email : "N/A",
+      supervisor_emp_id: supervisor ? supervisor.emp_id : "N/A",
       // Rate and Revenue logic depending on role
       rate: role === "supervisor" ? undefined : sub.snapshot_rate, // Hide from supervisor
       revenue: role === "supervisor" ? undefined : sub.revenue,   // Hide from supervisor
