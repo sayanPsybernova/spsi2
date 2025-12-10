@@ -11,13 +11,47 @@
     "active": true
   },
   {
-    "id": "ecca78bc-4557-4bcb-8264-7ad8829b79df",
-    "name": "supervisor1",
-    "role": "validator",
-    "phone": "5657",
+    "id": "1f87b588-ab26-47cc-b974-e9514258d2c4",
+    "name": "s",
+    "emp_id": "s@gmail.com",
+    "role": "supervisor",
+    "phone": "123",
     "password": "123",
     "active": true,
-    "image": "/uploads/1765194199924-341779618.png",
-    "created_at": "2025-12-08T11:43:19.935Z"
+    "image": "",
+    "created_at": "2025-12-10T08:49:31.060Z"
+  },
+  {
+    "id": "fc87b70a-2723-48bf-a61d-0d8cd155dbb9",
+    "name": "v",
+    "emp_id": "v@gmail.com",
+    "role": "supervisor",
+    "phone": "456",
+    "password": "123",
+    "active": true,
+    "image": "",
+    "created_at": "2025-12-10T08:51:25.503Z"
+  },
+  {
+    "id": "3624fdc9-014f-42b3-b46e-56449dd086f9",
+    "name": "va",
+    "emp_id": "v2@gmail.com",
+    "role": "validator",
+    "phone": "23",
+    "password": "123",
+    "active": true,
+    "image": "",
+    "created_at": "2025-12-10T08:52:18.314Z"
+  },
+  {
+    "id": "e4711d24-c096-4ffb-aa68-c8c4bbbc198d",
+    "name": "v3",
+    "emp_id": "v3@gmail.com",
+    "role": "validator",
+    "phone": "415",
+    "password": "123",
+    "active": true,
+    "image": "/uploads/1765357140544-276652314.png",
+    "created_at": "2025-12-10T08:59:00.556Z"
   }
 ]

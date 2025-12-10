@@ -226,7 +226,7 @@ export default function AdminDashboard() {
                         </span>
                         <div className="flex items-center justify-end gap-1 text-xs text-slate-400 dark:text-slate-500">
                           <Calendar size={12} />
-                          <p>{new Date(item.date).toLocaleDateString()}</p>
+                          <p>{new Date(item.created_at).toLocaleDateString()}</p>
                         </div>
                       </div>
                     </div>
@@ -262,6 +262,32 @@ export default function AdminDashboard() {
                         </div>
                       )}
                     </div>
+
+                    {/* Evidence Photos */}
+                    {item.evidence_photos && item.evidence_photos.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase">
+                          Evidence Photos
+                        </p>
+                        <div className="flex gap-2 overflow-x-auto pb-2">
+                          {item.evidence_photos.map((photo, idx) => (
+                            <a
+                              key={idx}
+                              href={photo}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block h-16 w-16 flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity"
+                            >
+                              <img
+                                src={photo.startsWith('http') ? photo : photo}
+                                alt={`Evidence ${idx + 1}`}
+                                className="h-full w-full object-cover"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-start justify-end md:pl-4 md:border-l border-slate-100 dark:border-slate-700">

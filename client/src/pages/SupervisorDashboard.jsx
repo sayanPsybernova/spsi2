@@ -38,6 +38,7 @@ export default function SupervisorDashboard() {
   const [selectedLineItem, setSelectedLineItem] = useState(null);
 
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [existingPhotos, setExistingPhotos] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [isResubmitting, setIsResubmitting] = useState(false);
 
@@ -106,6 +107,14 @@ export default function SupervisorDashboard() {
     }
   };
 
+  const removeNewPhoto = (index) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingPhoto = (index) => {
+    setExistingPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -124,22 +133,33 @@ export default function SupervisorDashboard() {
       data.append("actualManpower", formData.actualManpower);
       data.append("materialConsumed", formData.materialConsumed);
 
+      // Pass existing photos as JSON string if any
+      if (existingPhotos.length > 0) {
+        data.append("existingPhotos", JSON.stringify(existingPhotos));
+      }
+
+      if (isResubmitting && editingId) {
+          data.append("previousSubmissionId", editingId);
+          // If we are resubmitting, we must ensure workOrderId and lineItemId are passed
+          // But formData should have them populated from handleEdit
+          data.append("workOrderId", formData.workOrderId);
+          data.append("lineItemId", formData.lineItemId);
+      }
+
       selectedFiles.forEach((file) => {
         data.append("photos", file);
       });
 
-      if (isResubmitting && editingId) {
-        await axios.put(`${API_ENDPOINTS.submissions}/${editingId}`, data, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        alert("Resubmitted successfully!");
+      // ALWAYS Create New Submission (POST) to preserve history
+      await axios.post(API_ENDPOINTS.submissions, data, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      alert(isResubmitting ? "Resubmitted successfully!" : "Submitted successfully!");
+
+      if (isResubmitting) {
         setIsResubmitting(false);
         setEditingId(null);
-      } else {
-        await axios.post(API_ENDPOINTS.submissions, data, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        alert("Submitted successfully!");
+        setExistingPhotos([]);
       }
 
       setFormData({
@@ -158,15 +178,16 @@ export default function SupervisorDashboard() {
   };
 
   const handleEdit = (submission) => {
-    // For editing, we might need to pre-fetch master data or just allow editing variable fields
-    // Simpler: Only allow editing variable fields (qty, manpower, material)
+    console.log("Editing submission:", submission); // Debugging line
     setFormData({
-      ...formData,
+      workOrderId: submission.work_order_id,
+      lineItemId: submission.line_item_id,
       quantity: submission.quantity,
       actualManpower: submission.actual_manpower,
       materialConsumed: submission.material_consumed,
     });
     setEditingId(submission.id);
+    setExistingPhotos(submission.evidence_photos || []);
     setIsResubmitting(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -295,15 +316,35 @@ export default function SupervisorDashboard() {
                   <input id="cam-upload" type="file" capture="environment" accept="image/*" className="hidden" onChange={handleFileChange} />
                   <input id="file-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
                   
-                  {selectedFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {selectedFiles.map((f, i) => (
-                        <div key={i} className="w-16 h-16 rounded-lg bg-slate-100 overflow-hidden relative">
-                           <img src={URL.createObjectURL(f)} className="w-full h-full object-cover" />
+                  <div className="flex flex-wrap gap-2 mt-3">
+                      {/* Existing Photos (during resubmit) */}
+                      {existingPhotos.map((f, i) => (
+                        <div key={`exist-${i}`} className="w-16 h-16 rounded-lg bg-slate-100 overflow-hidden relative border border-blue-500/50 group">
+                           <img src={f.startsWith('http') ? f : f} className="w-full h-full object-cover opacity-80" />
+                           <button
+                              type="button"
+                              onClick={() => removeExistingPhoto(i)}
+                              className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                           >
+                              <XCircle size={12} />
+                           </button>
                         </div>
                       ))}
-                    </div>
-                  )}
+                      
+                      {/* New Photos */}
+                      {selectedFiles.map((f, i) => (
+                        <div key={i} className="w-16 h-16 rounded-lg bg-slate-100 overflow-hidden relative group">
+                           <img src={URL.createObjectURL(f)} className="w-full h-full object-cover" />
+                           <button
+                              type="button"
+                              onClick={() => removeNewPhoto(i)}
+                              className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                           >
+                              <XCircle size={12} />
+                           </button>
+                        </div>
+                      ))}
+                  </div>
                 </div>
 
                 <button
@@ -327,13 +368,13 @@ export default function SupervisorDashboard() {
           <div className="lg:col-span-2 space-y-6">
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">My Submissions</h2>
             
-            {submissions.slice().reverse().map((item) => (
+            {submissions.map((item) => (
               <div key={item.id} className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <div className="flex items-center gap-2 text-xs text-slate-400 font-semibold mb-1">
                       <Clock size={12} />
-                      {new Date(item.date).toLocaleDateString()} • {new Date(item.date).toLocaleTimeString()}
+                      {new Date(item.created_at).toLocaleDateString()} • {new Date(item.created_at).toLocaleTimeString()}
                     </div>
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white">{item.work_order_number}</h3>
                     <p className="text-sm text-slate-600 dark:text-slate-300">{item.line_item_name}</p>
@@ -352,6 +393,30 @@ export default function SupervisorDashboard() {
                   </div>
                 </div>
 
+                {/* Evidence Photos Display in List */}
+                {item.evidence_photos && item.evidence_photos.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-bold text-slate-500 uppercase mb-2">Evidence Photos</p>
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {item.evidence_photos.map((photo, idx) => (
+                        <a 
+                          key={idx} 
+                          href={photo.startsWith('http') ? photo : photo}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="block h-16 w-16 flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity"
+                        >
+                          <img 
+                            src={photo.startsWith('http') ? photo : photo} 
+                            alt={`Evidence ${idx + 1}`} 
+                            className="h-full w-full object-cover" 
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {item.status === "Rejected" && (
                   <div className="mb-4 bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-100 dark:border-red-800/30">
                     <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold mb-2">
@@ -363,6 +428,16 @@ export default function SupervisorDashboard() {
                       Edit & Resubmit
                     </button>
                   </div>
+                )}
+                
+                {item.status === "Resubmitted" && (
+                    <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/30">
+                        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-bold">
+                            <CheckCircle size={18} />
+                            <span>Resubmitted for Review</span>
+                        </div>
+                        <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">A newer version of this entry is pending validation.</p>
+                    </div>
                 )}
               </div>
             ))}
@@ -378,6 +453,7 @@ function StatusBadge({ status }) {
     "Pending Validation": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
     "Approved": "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
     "Rejected": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    "Resubmitted": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   };
   return (
     <span className={`px-3 py-1 rounded-full text-xs font-bold ${styles[status] || styles["Pending Validation"]}`}>

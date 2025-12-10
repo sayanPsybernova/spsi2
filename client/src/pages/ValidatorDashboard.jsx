@@ -59,7 +59,7 @@ export default function ValidatorDashboard() {
   const filteredSubmissions =
     filter === "All"
       ? submissions
-      : submissions.filter((s) => s.status === filter);
+      : submissions.filter((s) => s.status === (filter === "Pending" ? "Pending Validation" : filter));
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
@@ -130,10 +130,10 @@ export default function ValidatorDashboard() {
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                          {new Date(item.date).toLocaleDateString()}
+                          {new Date(item.created_at).toLocaleDateString()}
                         </p>
                         <p className="text-xs text-slate-400 dark:text-slate-500">
-                          {new Date(item.date).toLocaleTimeString()}
+                          {new Date(item.created_at).toLocaleTimeString()}
                         </p>
                       </div>
                     </div>
@@ -175,7 +175,7 @@ export default function ValidatorDashboard() {
                                 ) : (
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className="text-lg font-bold text-slate-800 dark:text-white">{item.quantity}</span>
-                                        {item.status === 'Pending' && (
+                                        {item.status === 'Pending Validation' && (
                                             <button onClick={() => startEditing(item)} className="p-1 text-slate-400 hover:text-blue-500 transition-colors">
                                                 <Edit2 size={14} />
                                             </button>
@@ -207,13 +207,13 @@ export default function ValidatorDashboard() {
                     </div>
 
                     {/* Evidence Photos */}
-                    {item.evidencePhotos && item.evidencePhotos.length > 0 && (
+                    {item.evidence_photos && item.evidence_photos.length > 0 && (
                       <div className="mt-4">
                         <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase">
                           Evidence:
                         </p>
                         <div className="flex gap-2 overflow-x-auto pb-2">
-                          {item.evidencePhotos.map((photo, idx) => (
+                          {item.evidence_photos.map((photo, idx) => (
                             <a
                               key={idx}
                               href={photo}
@@ -222,7 +222,7 @@ export default function ValidatorDashboard() {
                               className="block h-16 w-16 flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity"
                             >
                               <img
-                                src={photo}
+                                src={photo.startsWith('http') ? photo : photo}
                                 alt={`Evidence ${idx + 1}`}
                                 className="h-full w-full object-cover"
                               />
@@ -252,7 +252,7 @@ export default function ValidatorDashboard() {
 
                   {/* Actions Section */}
                   <div className="flex flex-row md:flex-col justify-center gap-3 md:border-l md:border-slate-100 dark:md:border-slate-700 md:pl-6 min-w-[140px]">
-                    {item.status === "Pending" ? (
+                    {item.status === "Pending Validation" ? (
                       <>
                         <button
                           onClick={() => handleStatus(item.id, "Approved")}

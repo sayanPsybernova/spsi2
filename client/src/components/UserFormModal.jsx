@@ -8,7 +8,7 @@ export default function UserFormModal({ role, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
-    userId: "",
+    emp_id: "",
     password: "",
     image: null,
   });
@@ -29,7 +29,7 @@ export default function UserFormModal({ role, onClose, onSuccess }) {
     const data = new FormData();
     data.append("name", formData.name);
     data.append("phone", formData.phone);
-    data.append("userId", formData.userId);
+    data.append("emp_id", formData.emp_id);
     data.append("password", formData.password);
     data.append("role", role); // 'supervisor', 'validator', 'admin'
     if (formData.image) data.append("image", formData.image);
@@ -143,15 +143,15 @@ export default function UserFormModal({ role, onClose, onSuccess }) {
 
           <div>
             <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              User ID
+              Employee ID
             </label>
             <input
               required
               type="text"
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:text-white placeholder-slate-400 text-sm"
-              value={formData.userId}
+              value={formData.emp_id}
               onChange={(e) =>
-                setFormData({ ...formData, userId: e.target.value })
+                setFormData({ ...formData, emp_id: e.target.value })
               }
             />
           </div>

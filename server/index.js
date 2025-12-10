@@ -240,6 +240,8 @@ app.post("/api/submissions", upload.array("photos"), (req, res) => {
     quantity,
     actualManpower,
     materialConsumed,
+    existingPhotos,
+    previousSubmissionId
   } = req.body;
 
   const lineItems = readData(FILES.lineItems);
@@ -251,6 +253,25 @@ app.post("/api/submissions", upload.array("photos"), (req, res) => {
 
   const qty = parseFloat(quantity);
   const revenue = qty * selectedItem.rate;
+
+  let finalPhotos = [];
+  
+  // 1. Add New Uploads
+  if (req.files && req.files.length > 0) {
+      finalPhotos = req.files.map((f) => `/uploads/${f.filename}`);
+  }
+  
+  // 2. Add Existing Photos (passed as JSON string)
+  if (existingPhotos) {
+      try {
+          const old = JSON.parse(existingPhotos);
+          if (Array.isArray(old)) {
+              finalPhotos = [...finalPhotos, ...old];
+          }
+      } catch(e) {
+          console.error("Error parsing existingPhotos", e);
+      }
+  }
 
   const newSubmission = {
     id: uuidv4(),
@@ -272,13 +293,24 @@ app.post("/api/submissions", upload.array("photos"), (req, res) => {
     status: "Pending Validation",
     remarks: "",
     admin_remarks: "",
-    evidence_photos: req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [],
+    evidence_photos: finalPhotos,
+    previous_submission_id: previousSubmissionId || null,
     
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
 
   const submissions = readData(FILES.submissions);
+
+  // If this is a resubmission, mark the old one as 'Resubmitted'
+  if (previousSubmissionId) {
+      const prevSub = submissions.find(s => s.id === previousSubmissionId);
+      if (prevSub) {
+          prevSub.status = "Resubmitted";
+          prevSub.updated_at = new Date().toISOString();
+      }
+  }
+
   submissions.push(newSubmission);
   writeData(FILES.submissions, submissions);
 
