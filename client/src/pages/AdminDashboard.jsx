@@ -23,6 +23,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { API_ENDPOINTS } from "../config/api";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard"); // 'dashboard', 'submissions', 'master', 'users'
@@ -148,35 +149,69 @@ export default function AdminDashboard() {
     }
   };
 
+  // Animation Variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    show: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+    <div className="min-h-screen bg-transparent transition-colors duration-300 selection:bg-indigo-500/30">
       <Navbar />
 
-      <main className="max-w-[1600px] mx-auto px-4 py-8">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         <div className="flex flex-col lg:flex-row gap-8">
             
             {/* LEFT COLUMN: Main Content (75%) */}
             <div className="lg:w-3/4 order-2 lg:order-1">
+                <AnimatePresence mode="wait">
                 
                 {activeTab === "dashboard" && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="mb-6">
-                            <h1 className="text-3xl font-black text-slate-900 dark:text-white">Live Tracking Dashboard</h1>
-                            <p className="text-slate-500 dark:text-slate-400">Real-time overview of field operations and revenue.</p>
+                    <motion.div 
+                        key="dashboard"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <div className="mb-8">
+                            <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Live Tracking Dashboard</h1>
+                            <p className="text-slate-500 dark:text-slate-400 text-lg mt-2">Real-time overview of field operations and revenue.</p>
                         </div>
                         <DashboardOverview />
-                    </div>
+                    </motion.div>
                 )}
 
                 {/* --- Submissions View --- */}
                 {activeTab === "submissions" && (
-                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <motion.div 
+                    key="submissions"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3 }}
+                  >
                     <div className="mb-6">
                         <h1 className="text-3xl font-black text-slate-900 dark:text-white">Approved Submissions</h1>
                         <p className="text-slate-500 dark:text-slate-400">Archive of all validated field entries.</p>
                     </div>
-                    <div className="grid grid-cols-1 gap-4 sm:gap-6 max-h-[70vh] overflow-y-auto pr-2">
+                    <motion.div 
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="show"
+                        className="grid grid-cols-1 gap-4 sm:gap-6 max-h-[70vh] overflow-y-auto pr-2 scrollbar-hide"
+                    >
                         {submissions.length === 0 && (
                         <div className="text-center py-10 text-slate-500">No approved submissions found.</div>
                         )}
@@ -184,9 +219,11 @@ export default function AdminDashboard() {
                         .slice()
                         .reverse()
                         .map((item) => (
-                            <div
+                            <motion.div
                             key={item.id}
-                            className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col md:flex-row gap-6 transition-all hover:shadow-md group"
+                            variants={itemVariants}
+                            layout
+                            className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col md:flex-row gap-6 hover:shadow-xl hover:scale-[1.01] transition-all duration-300 group"
                             >
                             <div className="flex-1">
                                 <div className="flex justify-between mb-4">
@@ -204,7 +241,7 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <span className="inline-block px-3 py-1 rounded-full text-xs font-bold mb-1 capitalize bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                    <span className="inline-block px-3 py-1 rounded-full text-xs font-bold mb-1 capitalize bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/30">
                                     {item.status}
                                     </span>
                                     <div className="flex items-center justify-end gap-1 text-xs text-slate-400 dark:text-slate-500">
@@ -254,19 +291,20 @@ export default function AdminDashboard() {
                                     </p>
                                     <div className="flex gap-2 overflow-x-auto pb-2">
                                     {item.evidence_photos.map((photo, idx) => (
-                                        <a
+                                        <motion.a
                                         key={idx}
+                                        whileHover={{ scale: 1.1, rotate: 2 }}
                                         href={photo}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="block h-16 w-16 flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity"
+                                        className="block h-16 w-16 flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity shadow-sm"
                                         >
                                         <img
                                             src={photo.startsWith('http') ? photo : photo}
                                             alt={`Evidence ${idx + 1}`}
                                             className="h-full w-full object-cover"
                                         />
-                                        </a>
+                                        </motion.a>
                                     ))}
                                     </div>
                                 </div>
@@ -274,7 +312,9 @@ export default function AdminDashboard() {
                             </div>
 
                             <div className="flex items-start justify-end md:pl-4 md:border-l border-slate-100 dark:border-slate-700">
-                                <button
+                                <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => {
                                     setRemarkModal(item.id);
                                     setAdminRemark(item.adminRemarks || "");
@@ -283,18 +323,25 @@ export default function AdminDashboard() {
                                 >
                                 <MessageSquare size={20} />
                                 <span className="text-sm font-bold">Remark</span>
-                                </button>
+                                </motion.button>
                             </div>
-                            </div>
+                            </motion.div>
                         ))}
-                    </div>
-                  </div>
+                    </motion.div>
+                  </motion.div>
                 )}
 
                 {/* --- User Management View --- */}
                 {activeTab === "users" && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                    <motion.div 
+                        key="users"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-6"
+                    >
+                        <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 gap-4">
                             <div>
                                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">System Users</h2>
                                 <p className="text-sm text-slate-500">Manage access for Supervisors, Validators, and Admins.</p>
@@ -309,22 +356,33 @@ export default function AdminDashboard() {
                                     <option value="validator">Validator</option>
                                     <option value="admin">Admin</option>
                                 </select>
-                                <button 
+                                <motion.button 
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                     onClick={() => {
                                         setEditingUser(null);
                                         setShowUserModal(true);
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/25"
+                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/25"
                                 >
                                     <UserPlus size={18} /> Add User
-                                </button>
+                                </motion.button>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <motion.div 
+                            variants={containerVariants}
+                            initial="hidden"
+                            animate="show"
+                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                        >
                             {Array.isArray(users) && users.map(u => (
-                                <div key={u.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-start gap-4 hover:shadow-md transition-all">
-                                    <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex-shrink-0">
+                                <motion.div 
+                                    key={u.id}
+                                    variants={itemVariants} 
+                                    className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-start gap-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group"
+                                >
+                                     <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex-shrink-0 ring-2 ring-transparent group-hover:ring-indigo-500 transition-all">
                                         {u.image ? (
                                             <img src={u.image} alt={u.name} className="h-full w-full object-cover" />
                                         ) : (
@@ -332,21 +390,21 @@ export default function AdminDashboard() {
                                                 <User size={24} />
                                             </div>
                                         )}
-                                    </div>
-                                                                 <div className="flex-1 min-w-0">
-                                                                    <h3 className="font-bold text-slate-900 dark:text-white truncate">{u.name}</h3>
-                                                                    <p className="text-xs text-slate-500 mb-0.5">{u.email}</p>
-                                                                    <p className="text-xs text-slate-400 font-mono mb-1">{u.emp_id}</p>
-                                                                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${                                            u.role === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
+                                     </div>
+                                     <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-slate-900 dark:text-white truncate">{u.name}</h3>
+                                        <p className="text-xs text-slate-500 mb-0.5">{u.email}</p>
+                                        <p className="text-xs text-slate-400 font-mono mb-1">{u.emp_id}</p>
+                                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
+                                            u.role === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
                                             u.role === 'validator' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
                                             'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                                         }`}>
                                             {u.role}
                                         </span>
-                                    </div>
-                                    
-                                    {/* Password Field Display (Super Admin Only) */}
-                                    <div className="flex flex-col items-end mr-4">
+                                     </div>
+                                     
+                                     <div className="flex flex-col items-end mr-4">
                                         <span className="text-[10px] uppercase font-bold text-slate-400">Password</span>
                                         <div className="flex items-center gap-2">
                                             <span className="text-sm font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/50 px-2 py-1 rounded min-w-[80px] text-center">
@@ -359,10 +417,12 @@ export default function AdminDashboard() {
                                                 {visiblePasswordId === u.id ? <EyeOff size={14} /> : <Eye size={14} />}
                                             </button>
                                         </div>
-                                    </div>
+                                     </div>
 
-                                    <div className="flex gap-2">
-                                        <button
+                                     <div className="flex gap-2">
+                                        <motion.button
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
                                             onClick={() => {
                                                 setEditingUser(u);
                                                 setSelectedRole(u.role);
@@ -371,10 +431,12 @@ export default function AdminDashboard() {
                                             className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                                         >
                                             <Edit2 size={18} />
-                                        </button>
-                                        <button 
+                                        </motion.button>
+                                        <motion.button 
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
                                             onClick={() => handleDeleteUser(u.id)}
-                                            disabled={u.id === "admin-uuid-001"} // Prevent deleting Super Admin
+                                            disabled={u.id === "admin-uuid-001"}
                                             className={`p-2 rounded-lg transition-colors ${
                                                 u.id === "admin-uuid-001" 
                                                 ? "text-slate-300 cursor-not-allowed" 
@@ -382,20 +444,32 @@ export default function AdminDashboard() {
                                             }`}
                                         >
                                             <Trash2 size={18} />
-                                        </button>
-                                    </div>
-                                </div>
+                                        </motion.button>
+                                     </div>
+                                </motion.div>
                             ))}
-                        </div>
-                    </div>
+                        </motion.div>
+                    </motion.div>
                 )}
 
                 {/* --- Master Data View --- */}
                 {activeTab === "master" && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <motion.div 
+                    key="master"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3 }}
+                    className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+                >
                     
                     {/* Work Orders Column */}
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700"
+                    >
                     <div className="flex items-center gap-3 mb-6">
                         <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
                         <Briefcase size={24} />
@@ -412,23 +486,28 @@ export default function AdminDashboard() {
                         onChange={(e) => setNewWO(e.target.value)}
                         required
                         />
-                        <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold">
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold">
                         <Plus size={20} />
-                        </button>
+                        </motion.button>
                     </form>
 
                     <div className="space-y-2 max-h-[400px] overflow-y-auto">
                         {workOrders.map((wo) => (
-                        <div key={wo.id} className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                        <div key={wo.id} className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-700 flex justify-between items-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                             <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{wo.order_number}</span>
                             <span className="text-xs text-slate-400">{new Date(wo.created_at).toLocaleDateString()}</span>
                         </div>
                         ))}
                     </div>
-                    </div>
+                    </motion.div>
 
                     {/* Line Items Column */}
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700"
+                    >
                     <div className="flex items-center gap-3 mb-6">
                         <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg">
                         <Layers size={24} />
@@ -480,16 +559,16 @@ export default function AdminDashboard() {
                         onChange={(e) => setNewLineItem({...newLineItem, standardManpower: e.target.value})}
                         required
                         />
-                        <button type="submit" className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold">
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold">
                         Add Line Item
-                        </button>
+                        </motion.button>
                     </form>
 
                     <div className="space-y-2 max-h-[300px] overflow-y-auto">
                         {lineItems.map((li) => {
                         const parentWO = workOrders.find(w => w.id === li.work_order_id);
                         return (
-                            <div key={li.id} className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-700">
+                            <div key={li.id} className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="font-bold text-slate-800 dark:text-white">{li.name}</p>
@@ -504,17 +583,18 @@ export default function AdminDashboard() {
                         );
                         })}
                     </div>
-                    </div>
+                    </motion.div>
 
-                </div>
+                </motion.div>
                 )}
+                </AnimatePresence>
             </div>
 
             {/* RIGHT COLUMN: Sidebar Navigation (25%) */}
             <div className="lg:w-1/4 order-1 lg:order-2">
-                <div className="sticky top-24 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-lg border border-slate-100 dark:border-slate-700">
+                <div className="sticky top-24 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-6 rounded-3xl shadow-lg border border-slate-100 dark:border-slate-700">
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 px-2">Menu</h2>
-                    <div className="space-y-2">
+                    <div className="space-y-2 relative">
                         <NavButton 
                             active={activeTab === 'dashboard'} 
                             onClick={() => setActiveTab('dashboard')} 
@@ -562,7 +642,11 @@ export default function AdminDashboard() {
       {/* Remark Modal */}
       {remarkModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6"
+          >
             <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">
               Add Admin Remark
             </h3>
@@ -589,7 +673,7 @@ export default function AdminDashboard() {
                 Save
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
       
@@ -613,17 +697,24 @@ function NavButton({ active, onClick, icon, label }) {
     return (
         <button
             onClick={onClick}
-            className={`w-full flex items-center justify-between p-4 rounded-xl transition-all duration-200 group ${
+            className={`relative w-full flex items-center justify-between p-4 rounded-xl transition-all duration-300 group z-10 ${
                 active 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 transform scale-105' 
-                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-white'
+                ? 'text-white' 
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
             }`}
         >
-            <div className="flex items-center gap-3">
+            {active && (
+                <motion.div
+                    layoutId="sidebar-active"
+                    className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl -z-10 shadow-lg shadow-blue-500/30"
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                />
+            )}
+            <div className="flex items-center gap-3 relative z-10">
                 {icon}
                 <span className="font-bold">{label}</span>
             </div>
-            {active && <ChevronRight size={18} />}
+            {active && <ChevronRight size={18} className="relative z-10" />}
         </button>
     )
 }

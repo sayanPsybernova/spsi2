@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import { X, Eye, EyeOff, Upload } from "lucide-react";
 import axios from "axios";
 import { API_ENDPOINTS } from "../config/api";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function UserFormModal({ role, userToEdit, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -10,13 +11,12 @@ export default function UserFormModal({ role, userToEdit, onClose, onSuccess }) 
     email: userToEdit?.email || "",
     phone: userToEdit?.phone || "",
     emp_id: userToEdit?.emp_id || "",
-    password: userToEdit?.password || "", // Pre-fill password for viewing/editing
+    password: userToEdit?.password || "", 
     image: null,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [preview, setPreview] = useState(userToEdit?.image || null);
 
-  // Clean up preview URL when component unmounts or preview changes
   useEffect(() => {
     return () => {
       if (preview && !preview.startsWith('/uploads')) {
@@ -52,166 +52,146 @@ export default function UserFormModal({ role, userToEdit, onClose, onSuccess }) 
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 transition-all">
-      <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-100 dark:border-slate-700">
-        <div className="flex justify-between items-center p-4 sm:p-6 border-b border-slate-100 dark:border-slate-700">
-          <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white capitalize">
-            {userToEdit ? "Edit User Details" : `Add New ${role}`}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 sm:p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
-          >
-            <X
-              size={16}
-              sm:size={20}
-              className="text-slate-500 dark:text-slate-400"
-            />
-          </button>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="p-4 sm:p-6 space-y-3 sm:space-y-4"
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+        <motion.div 
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: 1 }} 
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" 
+        />
+        
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          className="relative w-full max-w-lg bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 overflow-hidden"
         >
-          {/* Image Upload */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
-            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden">
-              {preview ? (
-                <img
-                  src={preview.startsWith('/uploads') ? `${API_ENDPOINTS.uploads}/../${preview}` : preview}
-                  alt="Preview"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <Upload
-                  size={16}
-                  sm:size={20}
-                  className="text-slate-400 dark:text-slate-500"
-                />
-              )}
-            </div>
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Profile Image
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (preview) {
-                    URL.revokeObjectURL(preview); // Revoke previous preview
-                  }
-                  setFormData({ ...formData, image: file });
-                  if (file) {
-                    setPreview(URL.createObjectURL(file));
-                  }
-                }}
-                className="block w-full text-xs sm:text-sm text-slate-500 dark:text-slate-400 file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-3 sm:file:px-4 file:rounded-full file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
-              />
-            </div>
+          {/* Header */}
+          <div className="flex justify-between items-center p-6 border-b border-slate-200/50 dark:border-slate-700/50">
+            <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 capitalize">
+              {userToEdit ? "Edit User Details" : `Add New ${role}`}
+            </h2>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-500"
+            >
+              <X size={20} />
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Name
-              </label>
-              <input
-                required
-                type="text"
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:text-white placeholder-slate-400 text-sm"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-              />
+          <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            {/* Image Upload */}
+            <div className="flex items-center gap-6">
+              <div className="relative group cursor-pointer">
+                <div className="h-20 w-20 rounded-2xl bg-slate-100 dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden transition-all group-hover:border-indigo-500">
+                  {preview ? (
+                    <img
+                      src={preview.startsWith('/uploads') ? `${API_ENDPOINTS.uploads}/../${preview}` : preview}
+                      alt="Preview"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Upload size={24} className="text-slate-400 group-hover:text-indigo-500" />
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (preview) URL.revokeObjectURL(preview);
+                    setFormData({ ...formData, image: file });
+                    if (file) setPreview(URL.createObjectURL(file));
+                  }}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Profile Photo</p>
+                <p className="text-xs text-slate-500">Tap to upload a clear image</p>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Email (Login ID)
-              </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Name</label>
+                <input
+                  required
+                  type="text"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white font-medium transition-all"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Phone</label>
+                <input
+                  required
+                  type="tel"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white font-medium transition-all"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Email (Login ID)</label>
               <input
                 required
                 type="email"
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:text-white placeholder-slate-400 text-sm"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white font-medium transition-all"
                 value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Phone
-              </label>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Employee ID</label>
               <input
                 required
-                type="tel"
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:text-white placeholder-slate-400 text-sm"
-                value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
+                type="text"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white font-medium transition-all"
+                value={formData.emp_id}
+                onChange={(e) => setFormData({ ...formData, emp_id: e.target.value })}
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Employee ID
-            </label>
-            <input
-              required
-              type="text"
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:text-white placeholder-slate-400 text-sm"
-              value={formData.emp_id}
-              onChange={(e) =>
-                setFormData({ ...formData, emp_id: e.target.value })
-              }
-            />
-          </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password</label>
+              <div className="relative">
+                <input
+                  required
+                  type={showPassword ? "text" : "password"}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none pr-12 dark:text-white font-medium transition-all"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <input
-                required
-                type={showPassword ? "text" : "password"}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none pr-10 dark:text-white placeholder-slate-400 text-sm"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-              />
+            <div className="pt-4">
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+                type="submit"
+                className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-indigo-500/30 active:scale-[0.98] transition-all"
               >
-                {showPassword ? (
-                  <EyeOff size={16} sm:size={18} />
-                ) : (
-                  <Eye size={16} sm:size={18} />
-                )}
+                {userToEdit ? "Save Changes" : "Create Account"}
               </button>
             </div>
-          </div>
-
-          <div className="pt-3 sm:pt-4">
-            <button
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 sm:py-2.5 rounded-xl font-semibold transition-colors shadow-lg shadow-blue-500/25"
-            >
-              {userToEdit ? "Save Changes" : "Create Account"}
-            </button>
-          </div>
-        </form>
+          </form>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
 }
 
