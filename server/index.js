@@ -105,35 +105,74 @@ app.post("/api/login", (req, res) => {
 // 2. User Management (Admin)
 app.get("/api/users", (req, res) => {
   const users = readData(FILES.users);
-  const safeUsers = users.map(({ password, ...u }) => u);
-  res.json(safeUsers);
+  // Return full user object including password as requested for Super Admin
+  res.json(users);
 });
 
 app.post("/api/users", upload.single("image"), (req, res) => {
-  const { name, emp_id, role, phone, email, password } = req.body;
+  const { id, name, emp_id, role, phone, email, password } = req.body;
   const users = readData(FILES.users);
 
-  if (users.find((u) => u.emp_id === emp_id)) {
-    return res.status(400).json({ success: false, message: "Employee ID already exists" });
+  if (id) {
+    // UPDATE EXISTING USER
+    const userIndex = users.findIndex(u => u.id === id);
+    if (userIndex === -1) return res.status(404).json({ success: false, message: "User not found" });
+    
+    // Update fields
+    users[userIndex].name = name;
+    users[userIndex].emp_id = emp_id;
+    users[userIndex].role = role;
+    users[userIndex].phone = phone;
+    users[userIndex].email = email;
+    if (password) users[userIndex].password = password; // Only update if provided
+    if (req.file) users[userIndex].image = `/uploads/${req.file.filename}`;
+    
+    writeData(FILES.users, users);
+    return res.json({ success: true, message: "User updated", user: users[userIndex] });
+
+  } else {
+    // CREATE NEW USER
+    if (users.find((u) => u.emp_id === emp_id)) {
+      return res.status(400).json({ success: false, message: "Employee ID already exists" });
+    }
+
+    const newUser = {
+      id: uuidv4(),
+      name,
+      emp_id,
+      role,
+      phone,
+      email,
+      password, 
+      active: true,
+      image: req.file ? `/uploads/${req.file.filename}` : "",
+      created_at: new Date().toISOString(),
+    };
+
+    users.push(newUser);
+    writeData(FILES.users, users);
+    res.json({ success: true, message: "User created", user: newUser });
   }
+});
 
-  const newUser = {
-    id: uuidv4(),
-    name,
-    emp_id,
-    role,
-    phone,
-    email,
-    password, // Storing plain text as requested (demo)
-    active: true,
-    image: req.file ? `/uploads/${req.file.filename}` : "",
-    created_at: new Date().toISOString(),
-  };
+app.delete("/api/users/:id", (req, res) => {
+    const { id } = req.params;
+    
+    // Prevent Super Admin deletion
+    if (id === "admin-uuid-001") { 
+        return res.status(403).json({ success: false, message: "Super Admin account cannot be deleted" });
+    }
 
-  users.push(newUser);
-  writeData(FILES.users, users);
-
-  res.json({ success: true, message: "User created", user: newUser });
+    let users = readData(FILES.users);
+    const initialLength = users.length;
+    users = users.filter(u => u.id !== id);
+    
+    if (users.length === initialLength) {
+        return res.status(404).json({ success: false, message: "User not found" });
+    }
+    
+    writeData(FILES.users, users);
+    res.json({ success: true, message: "User deleted" });
 });
 
 // 3. Master Data: Work Orders (Admin)

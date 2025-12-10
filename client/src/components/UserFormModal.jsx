@@ -4,22 +4,22 @@ import { X, Eye, EyeOff, Upload } from "lucide-react";
 import axios from "axios";
 import { API_ENDPOINTS } from "../config/api";
 
-export default function UserFormModal({ role, onClose, onSuccess }) {
+export default function UserFormModal({ role, userToEdit, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    emp_id: "",
-    password: "",
+    name: userToEdit?.name || "",
+    phone: userToEdit?.phone || "",
+    emp_id: userToEdit?.emp_id || "",
+    password: userToEdit?.password || "", // Pre-fill password for viewing/editing
     image: null,
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState(userToEdit?.image || null);
 
   // Clean up preview URL when component unmounts or preview changes
   useEffect(() => {
     return () => {
-      if (preview) {
-        URL.revokeObjectURL(preview);
+      if (preview && !preview.startsWith('/uploads')) {
+         URL.revokeObjectURL(preview);
       }
     };
   }, [preview]);
@@ -27,11 +27,12 @@ export default function UserFormModal({ role, onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const data = new FormData();
+    if (userToEdit) data.append("id", userToEdit.id);
     data.append("name", formData.name);
     data.append("phone", formData.phone);
     data.append("emp_id", formData.emp_id);
     data.append("password", formData.password);
-    data.append("role", role); // 'supervisor', 'validator', 'admin'
+    data.append("role", role); 
     if (formData.image) data.append("image", formData.image);
 
     try {
@@ -43,8 +44,8 @@ export default function UserFormModal({ role, onClose, onSuccess }) {
         onClose();
       }
     } catch (err) {
-      console.error("Error creating user:", err);
-      alert(err.response?.data?.message || "Error creating user");
+      console.error("Error saving user:", err);
+      alert(err.response?.data?.message || "Error saving user");
     }
   };
 
@@ -53,7 +54,7 @@ export default function UserFormModal({ role, onClose, onSuccess }) {
       <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-100 dark:border-slate-700">
         <div className="flex justify-between items-center p-4 sm:p-6 border-b border-slate-100 dark:border-slate-700">
           <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white capitalize">
-            Add New {role}
+            {userToEdit ? "Edit User Details" : `Add New ${role}`}
           </h2>
           <button
             onClick={onClose}
@@ -76,7 +77,7 @@ export default function UserFormModal({ role, onClose, onSuccess }) {
             <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden">
               {preview ? (
                 <img
-                  src={preview}
+                  src={preview.startsWith('/uploads') ? `${API_ENDPOINTS.uploads}/../${preview}` : preview}
                   alt="Preview"
                   className="h-full w-full object-cover"
                 />
@@ -189,7 +190,7 @@ export default function UserFormModal({ role, onClose, onSuccess }) {
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 sm:py-2.5 rounded-xl font-semibold transition-colors shadow-lg shadow-blue-500/25"
             >
-              Create Account
+              {userToEdit ? "Save Changes" : "Create Account"}
             </button>
           </div>
         </form>
@@ -200,6 +201,7 @@ export default function UserFormModal({ role, onClose, onSuccess }) {
 
 UserFormModal.propTypes = {
   role: PropTypes.string.isRequired,
+  userToEdit: PropTypes.object,
   onClose: PropTypes.func.isRequired,
   onSuccess: PropTypes.func.isRequired,
 };

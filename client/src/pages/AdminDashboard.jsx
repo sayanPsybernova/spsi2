@@ -14,7 +14,10 @@ import {
   FileText,
   Users,
   UserPlus,
-  Trash2
+  Trash2,
+  Edit2,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { API_ENDPOINTS } from "../config/api";
 
@@ -32,6 +35,8 @@ export default function AdminDashboard() {
   // User Modal State
   const [showUserModal, setShowUserModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState("supervisor");
+  const [editingUser, setEditingUser] = useState(null);
+  const [visiblePasswordId, setVisiblePasswordId] = useState(null);
 
   // Master Data Forms
   const [newWO, setNewWO] = useState("");
@@ -326,7 +331,10 @@ export default function AdminDashboard() {
                             <option value="admin">Admin</option>
                         </select>
                         <button 
-                            onClick={() => setShowUserModal(true)}
+                            onClick={() => {
+                                setEditingUser(null);
+                                setShowUserModal(true);
+                            }}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/25"
                         >
                             <UserPlus size={18} /> Add User
@@ -335,7 +343,7 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {users.map(u => (
+                    {Array.isArray(users) && users.map(u => (
                         <div key={u.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-start gap-4 hover:shadow-md transition-all">
                              <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex-shrink-0">
                                 {u.image ? (
@@ -357,12 +365,46 @@ export default function AdminDashboard() {
                                     {u.role}
                                 </span>
                              </div>
-                             <button 
-                                onClick={() => handleDeleteUser(u.id)}
-                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                             >
-                                <Trash2 size={18} />
-                             </button>
+                             
+                             {/* Password Field Display (Super Admin Only) */}
+                             <div className="flex flex-col items-end mr-4">
+                                <span className="text-[10px] uppercase font-bold text-slate-400">Password</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/50 px-2 py-1 rounded min-w-[80px] text-center">
+                                        {visiblePasswordId === u.id ? u.password : "••••••••"}
+                                    </span>
+                                    <button 
+                                        onClick={() => setVisiblePasswordId(visiblePasswordId === u.id ? null : u.id)}
+                                        className="text-slate-400 hover:text-blue-500 transition-colors"
+                                    >
+                                        {visiblePasswordId === u.id ? <EyeOff size={14} /> : <Eye size={14} />}
+                                    </button>
+                                </div>
+                             </div>
+
+                             <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        setEditingUser(u);
+                                        setSelectedRole(u.role);
+                                        setShowUserModal(true);
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                >
+                                    <Edit2 size={18} />
+                                </button>
+                                <button 
+                                    onClick={() => handleDeleteUser(u.id)}
+                                    disabled={u.id === "admin-uuid-001"} // Prevent deleting Super Admin
+                                    className={`p-2 rounded-lg transition-colors ${
+                                        u.id === "admin-uuid-001" 
+                                        ? "text-slate-300 cursor-not-allowed" 
+                                        : "text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    }`}
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                             </div>
                         </div>
                     ))}
                 </div>
@@ -527,6 +569,7 @@ export default function AdminDashboard() {
       {showUserModal && (
           <UserFormModal 
               role={selectedRole}
+              userToEdit={editingUser}
               onClose={() => setShowUserModal(false)}
               onSuccess={() => {
                   fetchUsers();
