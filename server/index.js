@@ -27,33 +27,65 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendLoginNotification = async (email, time) => {
+// Store pending verifications in memory
+// Structure: { [uuid]: { status: 'pending' | 'approved' | 'denied', user: userObj, timestamp: number } }
+const pendingVerifications = {};
+
+const sendLoginNotification = async (email, time, ip, userAgent, verificationId) => {
   try {
+    let location = "Unknown";
+    try {
+      // Basic check for localhost
+      if (ip === "::1" || ip === "127.0.0.1" || ip.includes("192.168.")) {
+        location = "Localhost / Internal Network";
+      } else {
+        const res = await fetch(`http://ip-api.com/json/${ip}`);
+        const data = await res.json();
+        if (data.status === "success") {
+          location = `${data.city}, ${data.regionName}, ${data.country}`;
+        }
+      }
+    } catch (locErr) {
+      console.error("Failed to fetch location:", locErr);
+    }
+
+    const baseUrl = "http://localhost:5000"; // Adjust if deployed
+    const approveLink = `${baseUrl}/api/verify-login?id=${verificationId}&answer=yes`;
+    const denyLink = `${baseUrl}/api/verify-login?id=${verificationId}&answer=no`;
+
     const mailOptions = {
       from: '"SPSI Security" <pradhansayan222@gmail.com>',
       to: email,
-      subject: "Security Alert: New Login Detected",
+      subject: "Action Required: Verify Login",
       html: `
-        <div style="font-family: Arial, sans-serif; color: #333;">
-          <h2>New Login Detected</h2>
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #2563eb;">New Login Attempt</h2>
           <p>Hello Super Admin,</p>
-          <p>We detected a new login to your SPSI Management Dashboard.</p>
-          <p><strong>Time:</strong> ${time}</p>
-          <p><strong>Account:</strong> ${email}</p>
-          <br/>
-          <p>If this was you, you can ignore this message.</p>
-          <p style="color: red; font-size: 12px;">If you did not log in, please contact support immediately.</p>
+          <p>We detected a login attempt to your SPSI Management Dashboard.</p>
+          
+          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Time:</strong> ${time}</p>
+            <p style="margin: 5px 0;"><strong>IP Address:</strong> ${ip}</p>
+            <p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>
+            <p style="margin: 5px 0;"><strong>Device:</strong> ${userAgent}</p>
+          </div>
+
+          <p style="font-size: 16px; font-weight: bold;">Is this you?</p>
+
+          <div style="margin: 25px 0;">
+            <a href="${approveLink}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 15px; font-weight: bold;">Yes, It's Me</a>
+            <a href="${denyLink}" style="background-color: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">No, Deny Access</a>
+          </div>
+          
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">Link expires in 10 minutes. If you click "No", the login attempt will be blocked immediately.</p>
         </div>
       `,
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log("Login notification email sent: " + info.response);
+    console.log("Login verification email sent: " + info.response);
   } catch (error) {
     console.error("Error sending email:", error);
-    console.log(
-      "💡 TIP: Ensure you have set your Gmail App Password in server/index.js line 20."
-    );
   }
 };
 
@@ -128,11 +160,38 @@ app.post("/api/login", (req, res) => {
   );
 
   if (user && user.active !== false) {
-    // Check for Super Admin Login Notification
+    // Check for Super Admin Login Verification
     if (user.email === "pradhansayan222@gmail.com") {
       const loginTime = new Date().toLocaleString();
-      // Send email asynchronously (don't block the response)
-      sendLoginNotification(user.email, loginTime);
+      const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "Unknown IP";
+      const userAgent = req.headers["user-agent"] || "Unknown Device";
+      
+      const verificationId = uuidv4();
+      
+      // Store in memory
+      pendingVerifications[verificationId] = {
+        status: 'pending',
+        user: {
+          id: user.id,
+          name: user.name,
+          role: user.role,
+          email: user.email,
+          emp_id: user.emp_id,
+          image: user.image,
+        },
+        timestamp: Date.now()
+      };
+
+      // Send verification email
+      sendLoginNotification(user.email, loginTime, ip, userAgent, verificationId);
+
+      // Return special response telling frontend to wait
+      return res.json({
+        success: true,
+        requireVerification: true,
+        verificationId: verificationId,
+        message: "Verification email sent. Please approve login."
+      });
     }
 
     res.json({
@@ -149,6 +208,60 @@ app.post("/api/login", (req, res) => {
   } else {
     res.status(401).json({ success: false, message: "Invalid credentials" });
   }
+});
+
+// 1a. Handle Email Verification Click
+app.get("/api/verify-login", (req, res) => {
+  const { id, answer } = req.query;
+  const verification = pendingVerifications[id];
+
+  if (!verification) {
+    return res.status(404).send("<h1>Expired or Invalid Link</h1><p>Please try logging in again.</p>");
+  }
+
+  if (answer === 'yes') {
+    verification.status = 'approved';
+    res.send(`
+      <div style="font-family: Arial; text-align: center; margin-top: 50px;">
+        <h1 style="color: green;">Login Approved</h1>
+        <p>You can now proceed to your dashboard.</p>
+        <script>setTimeout(() => window.close(), 2000);</script>
+      </div>
+    `);
+  } else {
+    verification.status = 'denied';
+    res.send(`
+      <div style="font-family: Arial; text-align: center; margin-top: 50px;">
+        <h1 style="color: red;">Login Denied</h1>
+        <p>The login attempt has been blocked.</p>
+      </div>
+    `);
+  }
+});
+
+// 1b. Check Verification Status (Frontend Poll)
+app.get("/api/auth/status", (req, res) => {
+  const { verificationId } = req.query;
+  const verification = pendingVerifications[verificationId];
+
+  if (!verification) {
+    return res.json({ status: 'expired' });
+  }
+
+  if (verification.status === 'approved') {
+    // Return the user and clear the pending verification
+    const user = verification.user;
+    delete pendingVerifications[verificationId]; // Cleanup
+    return res.json({ status: 'approved', user });
+  }
+
+  if (verification.status === 'denied') {
+    delete pendingVerifications[verificationId]; // Cleanup
+    return res.json({ status: 'denied' });
+  }
+
+  // Still pending
+  res.json({ status: 'pending' });
 });
 
 // 2. User Management (Admin)

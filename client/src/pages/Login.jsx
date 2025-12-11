@@ -1,24 +1,72 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, LogIn, User, Lock, Sun, Moon, ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Eye, EyeOff, LogIn, User, Lock, Sun, Moon, ArrowRight, ShieldCheck, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
+import { API_ENDPOINTS } from '../config/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const [verificationId, setVerificationId] = useState(null);
+  const [isPolling, setIsPolling] = useState(false);
+  
+  const { login, setUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  // Polling for Verification Status
+  useEffect(() => {
+    let interval;
+    if (isPolling && verificationId) {
+      interval = setInterval(async () => {
+        try {
+          const res = await axios.get(API_ENDPOINTS.authStatus, {
+            params: { verificationId }
+          });
+          
+          if (res.data.status === 'approved') {
+            clearInterval(interval);
+            // Manually finish login
+            localStorage.setItem("spsi_user", JSON.stringify(res.data.user));
+            setUser(res.data.user);
+            setIsPolling(false);
+            navigate('/');
+          } else if (res.data.status === 'denied') {
+            clearInterval(interval);
+            setIsPolling(false);
+            setError("Login attempt was denied by the administrator.");
+            setVerificationId(null);
+          }
+          // if pending, do nothing, keep polling
+        } catch (err) {
+            console.error("Polling error", err);
+        }
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [isPolling, verificationId, navigate, setUser]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    
+    // Quick local check before hitting server
+    if (!email || !password) {
+        setError("Please fill in all fields");
+        return;
+    }
+
     const result = await login(email, password);
-    if (result.success) {
+    
+    if (result.requireVerification) {
+        setVerificationId(result.verificationId);
+        setIsPolling(true);
+    } else if (result.success) {
         navigate('/');
     } else {
       setError(result.message);
@@ -26,8 +74,43 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex overflow-hidden bg-white dark:bg-slate-950 transition-colors duration-500">
+    <div className="min-h-screen w-full flex overflow-hidden bg-white dark:bg-slate-950 transition-colors duration-500 relative">
       
+      {/* Verification Modal */}
+      <AnimatePresence>
+        {isPolling && (
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4"
+            >
+                <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"
+                >
+                    <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <ShieldCheck className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-pulse" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Verification Required</h3>
+                    <p className="text-slate-600 dark:text-slate-400 mb-6">
+                        We've sent a verification link to your email. Please click <strong>"Yes, It's Me"</strong> to continue.
+                    </p>
+                    <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                    <button 
+                        onClick={() => { setIsPolling(false); setVerificationId(null); }}
+                        className="mt-6 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 underline"
+                    >
+                        Cancel Login
+                    </button>
+                </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Left Side - Artistic/Visual */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop')] bg-cover bg-center opacity-40 mix-blend-overlay"></div>

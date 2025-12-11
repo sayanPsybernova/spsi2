@@ -8,6 +8,7 @@ export const API_ENDPOINTS = {
   uploads: `${API_BASE_URL}/uploads`,
   workOrders: `${API_BASE_URL}/api/work-orders`,
   lineItems: `${API_BASE_URL}/api/line-items`,
+  authStatus: `${API_BASE_URL}/api/auth/status`,
 };
 
 export const API_BASE = API_BASE_URL;

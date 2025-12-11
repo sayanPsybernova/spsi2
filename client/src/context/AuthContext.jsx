@@ -26,6 +26,11 @@ export const AuthProvider = ({ children }) => {
     try {
       // Server expects 'userId' parameter for login (which can be email or emp_id)
       const res = await axios.post(API_ENDPOINTS.login, { userId: email, password });
+      
+      if (res.data.requireVerification) {
+         return res.data; // { success: true, requireVerification: true, verificationId: ... }
+      }
+
       if (res.data.success) {
         setUser(res.data.user);
         localStorage.setItem("spsi_user", JSON.stringify(res.data.user));
@@ -45,7 +50,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, setUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -25,5 +25,32 @@
     "rate": 20,
     "standard_manpower": "10",
     "created_at": "2025-12-10T08:40:09.379Z"
+  },
+  {
+    "id": "d5de97c0-4bdc-4124-91cf-740e28ae34a0",
+    "work_order_id": "d831bc00-6ecf-400b-9e74-efde930ccea6",
+    "name": "rope",
+    "uom": "4",
+    "rate": 10,
+    "standard_manpower": "5",
+    "created_at": "2025-12-11T08:54:45.685Z"
+  },
+  {
+    "id": "44d64fdf-08a0-453b-b7ca-09f99d53d361",
+    "work_order_id": "31cbf457-fd3b-4374-8d21-794d8a879141",
+    "name": "blade",
+    "uom": "78",
+    "rate": 3,
+    "standard_manpower": "5",
+    "created_at": "2025-12-11T09:00:47.273Z"
+  },
+  {
+    "id": "b70c9edc-723a-47dd-9514-40c6c9693874",
+    "work_order_id": "31cbf457-fd3b-4374-8d21-794d8a879141",
+    "name": "rope",
+    "uom": "10",
+    "rate": 7,
+    "standard_manpower": "7",
+    "created_at": "2025-12-11T09:01:04.128Z"
   }
 ]

@@ -272,5 +272,29 @@
     "previous_submission_id": null,
     "created_at": "2025-12-10T11:47:22.920Z",
     "updated_at": "2025-12-10T11:53:10.774Z"
+  },
+  {
+    "id": "af381d86-3dbe-4836-b71a-9598418b327b",
+    "supervisor_id": "undefined",
+    "supervisor_name": "s",
+    "work_order_id": "31cbf457-fd3b-4374-8d21-794d8a879141",
+    "line_item_id": "44d64fdf-08a0-453b-b7ca-09f99d53d361",
+    "quantity": 1,
+    "actual_manpower": "5",
+    "material_consumed": "cement",
+    "snapshot_rate": 3,
+    "snapshot_standard_manpower": "5",
+    "revenue": 3,
+    "status": "Pending Validation",
+    "remarks": "",
+    "admin_remarks": "",
+    "evidence_photos": [
+      "/uploads/1765445271662-292948188.png",
+      "/uploads/1765445271663-152758980.png",
+      "/uploads/1765445271774-50602720.jpg"
+    ],
+    "previous_submission_id": null,
+    "created_at": "2025-12-11T09:27:51.780Z",
+    "updated_at": "2025-12-11T09:27:51.780Z"
   }
 ]
