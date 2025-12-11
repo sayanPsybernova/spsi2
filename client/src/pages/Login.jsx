@@ -12,8 +12,12 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  
+  // 2FA State
   const [verificationId, setVerificationId] = useState(null);
   const [isPolling, setIsPolling] = useState(false);
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [otp, setOtp] = useState('');
   
   const { login, setUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -22,34 +26,55 @@ export default function Login() {
   // Polling for Verification Status
   useEffect(() => {
     let interval;
-    if (isPolling && verificationId) {
+    if (isPolling && verificationId && !showOtpInput) {
       interval = setInterval(async () => {
         try {
           const res = await axios.get(API_ENDPOINTS.authStatus, {
             params: { verificationId }
           });
           
-          if (res.data.status === 'approved') {
+          if (res.data.status === 'email_verified') {
+            setShowOtpInput(true);
+            // Don't stop polling completely if you want to detect denial? 
+            // Actually, once email is verified, we wait for user to input OTP.
+            // So we can stop polling.
             clearInterval(interval);
-            // Manually finish login
-            localStorage.setItem("spsi_user", JSON.stringify(res.data.user));
-            setUser(res.data.user);
-            setIsPolling(false);
-            navigate('/');
           } else if (res.data.status === 'denied') {
             clearInterval(interval);
             setIsPolling(false);
-            setError("Login attempt was denied by the administrator.");
+            setShowOtpInput(false);
+            setError("Login attempt was denied.");
             setVerificationId(null);
           }
-          // if pending, do nothing, keep polling
         } catch (err) {
             console.error("Polling error", err);
         }
       }, 2000);
     }
     return () => clearInterval(interval);
-  }, [isPolling, verificationId, navigate, setUser]);
+  }, [isPolling, verificationId, showOtpInput]);
+
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault();
+    try {
+        const res = await axios.post(API_ENDPOINTS.verifyOtp, {
+            verificationId,
+            otp
+        });
+        
+        if (res.data.success) {
+            localStorage.setItem("spsi_user", JSON.stringify(res.data.user));
+            setUser(res.data.user);
+            setIsPolling(false);
+            setShowOtpInput(false);
+            navigate('/');
+        } else {
+            setError(res.data.message || "Invalid OTP");
+        }
+    } catch (err) {
+        setError("Failed to verify OTP");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -66,6 +91,8 @@ export default function Login() {
     if (result.requireVerification) {
         setVerificationId(result.verificationId);
         setIsPolling(true);
+        setShowOtpInput(false);
+        setOtp('');
     } else if (result.success) {
         navigate('/');
     } else {
@@ -90,18 +117,64 @@ export default function Login() {
                     animate={{ scale: 1, opacity: 1 }}
                     className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"
                 >
-                    <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <ShieldCheck className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-pulse" />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Verification Required</h3>
-                    <p className="text-slate-600 dark:text-slate-400 mb-6">
-                        We've sent a verification link to your email. Please click <strong>"Yes, It's Me"</strong> to continue.
-                    </p>
-                    <div className="flex justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    </div>
+                    {!showOtpInput ? (
+                        <>
+                            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <ShieldCheck className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-pulse" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Step 1: Email Approval</h3>
+                            <p className="text-slate-600 dark:text-slate-400 mb-6">
+                                We've sent a verification link to your email. Please click <strong>"Yes, It's Me"</strong> to proceed.
+                            </p>
+                            <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Lock className="w-8 h-8 text-green-600 dark:text-green-400" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Step 2: Enter OTP</h3>
+                            <p className="text-slate-600 dark:text-slate-400 mb-6">
+                                Enter the 6-digit code sent to your email and mobile.
+                            </p>
+                            <form onSubmit={handleOtpSubmit} className="space-y-4">
+                                <input
+                                    type="text"
+                                    value={otp}
+                                    onChange={(e) => {
+                                        setOtp(e.target.value.replace(/\D/g, '').slice(0, 6));
+                                        if (error === "Invalid OTP" || error === "Failed to verify OTP") {
+                                            setError(''); // Clear OTP error on input change
+                                        }
+                                    }}
+                                    className="w-full text-center text-2xl tracking-widest py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white font-mono"
+                                    placeholder="000000"
+                                    maxLength="6"
+                                    autoFocus
+                                />
+                                {error && (error === "Invalid OTP" || error === "Failed to verify OTP") && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: -5 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="p-2 text-red-600 dark:text-red-400 text-sm font-medium"
+                                    >
+                                        <XCircle className="inline-block w-4 h-4 mr-1" /> {error}. Please try again.
+                                    </motion.div>
+                                )}
+                                <button
+                                    type="submit"
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition-colors"
+                                >
+                                    Verify & Login
+                                </button>
+                            </form>
+                        </>
+                    )}
+
                     <button 
-                        onClick={() => { setIsPolling(false); setVerificationId(null); }}
+                        onClick={() => { setIsPolling(false); setVerificationId(null); setShowOtpInput(false); }}
                         className="mt-6 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 underline"
                     >
                         Cancel Login

@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
   workOrders: `${API_BASE_URL}/api/work-orders`,
   lineItems: `${API_BASE_URL}/api/line-items`,
   authStatus: `${API_BASE_URL}/api/auth/status`,
+  verifyOtp: `${API_BASE_URL}/api/verify-otp`,
 };
 
 export const API_BASE = API_BASE_URL;

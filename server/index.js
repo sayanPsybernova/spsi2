@@ -32,8 +32,22 @@ const transporter = nodemailer.createTransport({
 });
 
 // Store pending verifications in memory
-// Structure: { [uuid]: { status: 'pending' | 'approved' | 'denied', user: userObj, timestamp: number } }
+// Structure: { [uuid]: { status: 'pending' | 'email_verified' | 'approved' | 'denied', user: userObj, timestamp: number, otp: string } }
 const pendingVerifications = {};
+
+// Helper to generate 6-digit OTP
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Mock SMS Sender (Replace with real API like Twilio/MSG91)
+const sendSMS = async (phone, otp) => {
+  console.log(`\n--- 📱 SMS SIMULATION ---`);
+  console.log(`To: ${phone}`);
+  console.log(`Message: Your SPSI Security OTP is: ${otp}`);
+  console.log(`-------------------------\n`);
+  // In a real app, you would await smsProvider.send({ to: phone, body: ... })
+};
 
 // Helper to make User-Agent readable
 const parseUserAgent = (ua) => {
@@ -60,7 +74,7 @@ const parseUserAgent = (ua) => {
   return `${browser} on ${os}`;
 };
 
-const sendLoginNotification = async (email, time, ip, userAgent, verificationId) => {
+const sendLoginNotification = async (email, time, ip, userAgent, verificationId, otp) => {
   try {
     let location = "Unknown";
     let isp = "Unknown ISP";
@@ -106,7 +120,7 @@ const sendLoginNotification = async (email, time, ip, userAgent, verificationId)
     const mailOptions = {
       from: '"SPSI Security" <pradhansayan222@gmail.com>',
       to: email,
-      subject: "Action Required: Verify Login",
+      subject: "Security Code: " + otp + " - Verify Login",
       html: `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
           <h2 style="color: #2563eb;">New Login Attempt</h2>
@@ -114,17 +128,21 @@ const sendLoginNotification = async (email, time, ip, userAgent, verificationId)
           <p>We detected a login attempt to your SPSI Management Dashboard.</p>
           
           <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
+             <div style="text-align: center; margin-bottom: 20px;">
+                <p style="margin: 0; font-size: 14px; color: #666;">Your One-Time Password (OTP)</p>
+                <h1 style="margin: 5px 0; font-size: 32px; letter-spacing: 5px; color: #333;">${otp}</h1>
+             </div>
+             <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
             <p style="margin: 5px 0;"><strong>Time:</strong> ${time}</p>
             <p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>
             <p style="margin: 5px 0;"><strong>ISP:</strong> ${isp}</p>
             <p style="margin: 5px 0;"><strong>Hostname:</strong> ${hostname}</p>
             <p style="margin: 5px 0;"><strong>IP Address:</strong> ${ip}</p>
-            <hr style="border: 0; border-top: 1px solid #ddd; margin: 10px 0;">
             <p style="margin: 5px 0;"><strong>Device:</strong> ${friendlyDevice}</p>
-            <p style="margin: 5px 0; font-size: 11px; color: #666; word-break: break-all;"><strong>Exact Raw Data:</strong><br/>${userAgent}</p>
           </div>
 
-          <p style="font-size: 16px; font-weight: bold;">Is this you?</p>
+          <p style="font-size: 16px; font-weight: bold;">Step 1: Is this you?</p>
+          <p>Click "Yes" below to approve the device. You will then be asked to enter the OTP above.</p>
 
           <div style="margin: 25px 0;">
             <a href="${approveLink}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 15px; font-weight: bold;">Yes, It's Me</a>
@@ -221,6 +239,7 @@ app.post("/api/login", (req, res) => {
       const userAgent = req.headers["user-agent"] || "Unknown Device";
       
       const verificationId = uuidv4();
+      const otp = generateOTP();
       
       // Store in memory
       pendingVerifications[verificationId] = {
@@ -233,18 +252,22 @@ app.post("/api/login", (req, res) => {
           emp_id: user.emp_id,
           image: user.image,
         },
+        otp: otp,
         timestamp: Date.now()
       };
 
       // Send verification email
-      sendLoginNotification(user.email, loginTime, ip, userAgent, verificationId);
+      sendLoginNotification(user.email, loginTime, ip, userAgent, verificationId, otp);
+
+      // Send SMS (Simulation)
+      sendSMS("+917584045922", otp);
 
       // Return special response telling frontend to wait
       return res.json({
         success: true,
         requireVerification: true,
         verificationId: verificationId,
-        message: "Verification email sent. Please approve login."
+        message: "Verification email and SMS sent. Please approve login."
       });
     }
 
@@ -274,12 +297,12 @@ app.get("/api/verify-login", (req, res) => {
   }
 
   if (answer === 'yes') {
-    verification.status = 'approved';
+    verification.status = 'email_verified'; // Update to intermediate status
     res.send(`
       <div style="font-family: Arial; text-align: center; margin-top: 50px;">
-        <h1 style="color: green;">Login Approved</h1>
-        <p>You can now proceed to your dashboard.</p>
-        <script>setTimeout(() => window.close(), 2000);</script>
+        <h1 style="color: green;">Device Approved</h1>
+        <p>Please enter the OTP sent to your mobile/email in the application to complete login.</p>
+        <script>setTimeout(() => window.close(), 3000);</script>
       </div>
     `);
   } else {
@@ -302,20 +325,48 @@ app.get("/api/auth/status", (req, res) => {
     return res.json({ status: 'expired' });
   }
 
+  if (verification.status === 'email_verified') {
+    return res.json({ status: 'email_verified' });
+  }
+
   if (verification.status === 'approved') {
-    // Return the user and clear the pending verification
+    // Only return user if fully approved (should happen via /verify-otp usually, but safety net)
     const user = verification.user;
-    delete pendingVerifications[verificationId]; // Cleanup
+    delete pendingVerifications[verificationId]; 
     return res.json({ status: 'approved', user });
   }
 
   if (verification.status === 'denied') {
-    delete pendingVerifications[verificationId]; // Cleanup
+    delete pendingVerifications[verificationId]; 
     return res.json({ status: 'denied' });
   }
 
   // Still pending
   res.json({ status: 'pending' });
+});
+
+// 1c. Verify OTP (Final Step)
+app.post("/api/verify-otp", (req, res) => {
+  const { verificationId, otp } = req.body;
+  const verification = pendingVerifications[verificationId];
+
+  if (!verification) {
+    return res.status(400).json({ success: false, message: "Session expired" });
+  }
+
+  if (verification.status !== 'email_verified') {
+     // User tried to skip email step
+    return res.status(400).json({ success: false, message: "Please approve the login via email first." });
+  }
+
+  if (verification.otp === otp) {
+    verification.status = 'approved';
+    const user = verification.user;
+    delete pendingVerifications[verificationId]; // Cleanup
+    return res.json({ success: true, user });
+  } else {
+    return res.json({ success: false, message: "Invalid OTP" });
+  }
 });
 
 // 2. User Management (Admin)
