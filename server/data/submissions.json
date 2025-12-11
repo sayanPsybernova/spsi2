@@ -296,5 +296,27 @@
     "previous_submission_id": null,
     "created_at": "2025-12-11T09:27:51.780Z",
     "updated_at": "2025-12-11T09:27:51.780Z"
+  },
+  {
+    "id": "209f55c2-588a-4855-aa88-3f623a1c4e5b",
+    "supervisor_id": "s2@gmail.com",
+    "supervisor_name": "sayan",
+    "work_order_id": "31cbf457-fd3b-4374-8d21-794d8a879141",
+    "line_item_id": "44d64fdf-08a0-453b-b7ca-09f99d53d361",
+    "quantity": 29,
+    "actual_manpower": "5",
+    "material_consumed": "test",
+    "snapshot_rate": 3,
+    "snapshot_standard_manpower": "5",
+    "revenue": 87,
+    "status": "Approved",
+    "remarks": "",
+    "admin_remarks": "",
+    "evidence_photos": [
+      "/uploads/1765451338177-868642183.png"
+    ],
+    "previous_submission_id": null,
+    "created_at": "2025-12-11T11:08:58.302Z",
+    "updated_at": "2025-12-11T11:09:29.249Z"
   }
 ]

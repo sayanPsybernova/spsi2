@@ -4,6 +4,8 @@ import { X, Eye, EyeOff, Upload } from "lucide-react";
 import axios from "axios";
 import { API_ENDPOINTS } from "../config/api";
 import { motion, AnimatePresence } from "framer-motion";
+import Swal from 'sweetalert2';
+import Loader from "./Loader";
 
 export default function UserFormModal({ role, userToEdit, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -16,6 +18,7 @@ export default function UserFormModal({ role, userToEdit, onClose, onSuccess }) 
   });
   const [showPassword, setShowPassword] = useState(false);
   const [preview, setPreview] = useState(userToEdit?.image || null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -27,6 +30,7 @@ export default function UserFormModal({ role, userToEdit, onClose, onSuccess }) 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     const data = new FormData();
     if (userToEdit) data.append("id", userToEdit.id);
     data.append("name", formData.name);
@@ -47,13 +51,16 @@ export default function UserFormModal({ role, userToEdit, onClose, onSuccess }) 
       }
     } catch (err) {
       console.error("Error saving user:", err);
-      alert(err.response?.data?.message || "Error saving user");
+      Swal.fire("Error", err.response?.data?.message || "Error saving user", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+        {loading && <Loader text="Saving..." />}
         <motion.div 
           initial={{ opacity: 0 }} 
           animate={{ opacity: 1 }} 

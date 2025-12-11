@@ -31,6 +31,7 @@ import PendingSubmissionsModal from "../components/PendingSubmissionsModal";
 import Navbar from "../components/Navbar";
 import { API_ENDPOINTS } from "../config/api";
 import { useTheme } from "../context/ThemeContext";
+import Swal from 'sweetalert2';
 
 export default function SuperAdminDashboard() {
   const [activeModal, setActiveModal] = useState(null);
@@ -440,7 +441,7 @@ export default function SuperAdminDashboard() {
           <UserFormModal
             role={activeModal}
             onClose={() => setActiveModal(null)}
-            onSuccess={() => alert(`${activeModal} created successfully!`)}
+            onSuccess={() => Swal.fire("Success", `${activeModal} created successfully!`, "success")}
           />
         )}
 

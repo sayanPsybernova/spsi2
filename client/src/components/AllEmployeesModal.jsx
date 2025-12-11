@@ -15,10 +15,13 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { API_ENDPOINTS, API_BASE } from "../config/api";
+import Swal from 'sweetalert2';
+import Loader from "./Loader";
 
 export default function AllEmployeesModal({ onClose }) {
   const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [fetching, setFetching] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [editFormData, setEditFormData] = useState({
     name: "",
@@ -49,23 +52,32 @@ export default function AllEmployeesModal({ onClose }) {
     } catch (err) {
       console.error("Error fetching employees:", err);
     } finally {
-      setLoading(false);
+      setFetching(false);
     }
   };
 
   const handleDelete = async (id, name) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete employee "${name}"? This action cannot be undone.`
-      )
-    ) {
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: `Are you sure you want to delete employee "${name}"? This action cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (result.isConfirmed) {
+      setActionLoading(true);
       try {
         await axios.delete(`${API_ENDPOINTS.users}/${id}`);
         setEmployees(employees.filter((emp) => emp.id !== id));
-        alert("Employee deleted successfully.");
+        Swal.fire("Deleted!", "Employee deleted successfully.", "success");
       } catch (err) {
         console.error("Error deleting employee:", err);
-        alert("Failed to delete employee.");
+        Swal.fire("Error", "Failed to delete employee.", "error");
+      } finally {
+        setActionLoading(false);
       }
     }
   };
@@ -98,6 +110,7 @@ export default function AllEmployeesModal({ onClose }) {
     data.append("role", editingUser.role);
     if (editFormData.image) data.append("image", editFormData.image);
 
+    setActionLoading(true);
     try {
       const res = await axios.put(
         `${API_ENDPOINTS.users}/${editingUser.id}`,
@@ -114,13 +127,15 @@ export default function AllEmployeesModal({ onClose }) {
             emp.id === editingUser.id ? res.data.user : emp
           )
         );
-        alert("Employee updated successfully!");
+        Swal.fire("Success", "Employee updated successfully!", "success");
         setEditingUser(null);
         setPreview(null);
       }
     } catch (err) {
       console.error("Error updating user:", err);
-      alert(err.response?.data?.message || "Error updating user");
+      Swal.fire("Error", err.response?.data?.message || "Error updating user", "error");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -166,6 +181,7 @@ export default function AllEmployeesModal({ onClose }) {
   if (editingUser) {
     return (
       <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
+        {actionLoading && <Loader text="Updating..." />}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 animate-in fade-in zoom-in duration-200 border border-slate-100 dark:border-slate-700">
           <div className="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
             <h2 className="text-xl font-bold text-slate-800 dark:text-white">
@@ -303,6 +319,7 @@ export default function AllEmployeesModal({ onClose }) {
   // List View
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
+      {actionLoading && <Loader text="Processing..." />}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col animate-in fade-in zoom-in duration-200 border border-slate-100 dark:border-slate-700">
         <div className="flex justify-between items-center p-4 sm:p-6 border-b border-slate-100 dark:border-slate-700">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -326,7 +343,7 @@ export default function AllEmployeesModal({ onClose }) {
         </div>
 
         <div className="flex-1 overflow-auto p-6">
-          {loading ? (
+          {fetching ? (
             <div className="flex h-full items-center justify-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
             </div>

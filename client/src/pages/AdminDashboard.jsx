@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { API_ENDPOINTS } from "../config/api";
 import { motion, AnimatePresence } from "framer-motion";
+import Swal from 'sweetalert2';
+import Loader from "../components/Loader";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard"); // 'dashboard', 'submissions', 'master', 'users'
@@ -31,6 +33,7 @@ export default function AdminDashboard() {
   const [workOrders, setWorkOrders] = useState([]);
   const [lineItems, setLineItems] = useState([]);
   const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   // Remark State
   const [remarkModal, setRemarkModal] = useState(null);
@@ -59,11 +62,14 @@ export default function AdminDashboard() {
   }, []);
 
   const fetchSubmissions = async () => {
+    setLoading(true);
     try {
       const res = await axios.get(`${API_ENDPOINTS.submissions}?role=admin`);
       setSubmissions(res.data);
     } catch (err) {
       console.error("Failed to fetch submissions:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -91,21 +97,25 @@ export default function AdminDashboard() {
 
   const handleCreateWO = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       await axios.post(API_ENDPOINTS.workOrders, {
         orderNumber: newWO,
       });
       setNewWO("");
-      fetchMasterData();
-      alert("Work Order Created");
+      await fetchMasterData(); // Await this to ensure data is refreshed before stopping loading
+      Swal.fire("Success", "Work Order Created", "success");
     } catch (err) {
       console.error(err);
-      alert("Error creating Work Order");
+      Swal.fire("Error", "Error creating Work Order", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleCreateLineItem = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       await axios.post(API_ENDPOINTS.lineItems, newLineItem);
       setNewLineItem({
@@ -115,37 +125,61 @@ export default function AdminDashboard() {
         rate: "",
         standardManpower: "",
       });
-      fetchMasterData();
-      alert("Line Item Created");
+      await fetchMasterData();
+      Swal.fire("Success", "Line Item Created", "success");
     } catch (err) {
       console.error(err);
-      alert("Error creating Line Item");
+      Swal.fire("Error", "Error creating Line Item", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDeleteUser = async (id) => {
-      if(!window.confirm("Are you sure you want to delete this user?")) return;
-      try {
-          await axios.delete(`${API_ENDPOINTS.users}/${id}`);
-          fetchUsers();
-      } catch (err) {
-          console.error("Error deleting user:", err);
-          alert("Failed to delete user");
+      const result = await Swal.fire({
+          title: 'Are you sure?',
+          text: "You won't be able to revert this!",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#3085d6',
+          cancelButtonColor: '#d33',
+          confirmButtonText: 'Yes, delete it!'
+      });
+
+      if (result.isConfirmed) {
+          setLoading(true);
+          try {
+              await axios.delete(`${API_ENDPOINTS.users}/${id}`);
+              await fetchUsers();
+              Swal.fire(
+                  'Deleted!',
+                  'User has been deleted.',
+                  'success'
+              );
+          } catch (err) {
+              console.error("Error deleting user:", err);
+              Swal.fire('Error', 'Failed to delete user', 'error');
+          } finally {
+              setLoading(false);
+          }
       }
   };
 
   const handleRemark = async () => {
+    setLoading(true);
     try {
       await axios.put(
         `${API_ENDPOINTS.submissions}/${remarkModal}/admin-remark`,
         { adminRemarks: adminRemark }
       );
-      fetchSubmissions();
+      await fetchSubmissions();
       setRemarkModal(null);
       setAdminRemark("");
     } catch (err) {
       console.error("Error adding remark:", err);
-      alert("Error adding remark");
+      Swal.fire("Error", "Error adding remark", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -167,6 +201,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-transparent transition-colors duration-300 selection:bg-indigo-500/30">
+      {loading && <Loader />}
       <Navbar />
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">

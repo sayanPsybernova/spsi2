@@ -3,6 +3,8 @@ import axios from "axios";
 import Navbar from "../components/Navbar";
 import { Check, X, Filter, AlertCircle, Edit2, Save } from "lucide-react";
 import { API_ENDPOINTS } from "../config/api";
+import Swal from 'sweetalert2';
+import Loader from "../components/Loader";
 
 export default function ValidatorDashboard() {
   const [submissions, setSubmissions] = useState([]);
@@ -13,6 +15,7 @@ export default function ValidatorDashboard() {
   // Edit State
   const [editingId, setEditingId] = useState(null);
   const [editQuantity, setEditQuantity] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchSubmissions();
@@ -30,6 +33,7 @@ export default function ValidatorDashboard() {
   };
 
   const handleStatus = async (id, status, remarks = "") => {
+    setLoading(true);
     try {
       const payload = { status, remarks };
       
@@ -40,14 +44,16 @@ export default function ValidatorDashboard() {
 
       await axios.put(`${API_ENDPOINTS.submissions}/${id}/validate`, payload);
       
-      fetchSubmissions();
+      await fetchSubmissions();
       setRejectModal(null);
       setRejectReason("");
       setEditingId(null);
       setEditQuantity("");
     } catch (err) {
       console.error("Error updating status:", err);
-      alert("Error updating status");
+      Swal.fire("Error", "Error updating status", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -63,6 +69,7 @@ export default function ValidatorDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+      {loading && <Loader />}
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6 sm:py-8">

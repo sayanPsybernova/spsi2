@@ -16,6 +16,8 @@ import {
   Briefcase
 } from "lucide-react";
 import { API_ENDPOINTS } from "../config/api";
+import Swal from 'sweetalert2';
+import Loader from "../components/Loader";
 
 export default function SupervisorDashboard() {
   const { user } = useAuth();
@@ -41,6 +43,7 @@ export default function SupervisorDashboard() {
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [isResubmitting, setIsResubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchSubmissions();
@@ -117,6 +120,7 @@ export default function SupervisorDashboard() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const supervisorId = user.userId || user.email;
       const data = new FormData();
@@ -154,7 +158,7 @@ export default function SupervisorDashboard() {
       await axios.post(API_ENDPOINTS.submissions, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      alert(isResubmitting ? "Resubmitted successfully!" : "Submitted successfully!");
+      Swal.fire("Success", isResubmitting ? "Resubmitted successfully!" : "Submitted successfully!", "success");
 
       if (isResubmitting) {
         setIsResubmitting(false);
@@ -170,10 +174,12 @@ export default function SupervisorDashboard() {
         materialConsumed: "",
       });
       setSelectedFiles([]);
-      fetchSubmissions();
+      await fetchSubmissions();
     } catch (err) {
       console.error("Error submitting data:", err);
-      alert(err.response?.data?.message || "Error submitting data");
+      Swal.fire("Error", err.response?.data?.message || "Error submitting data", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -194,6 +200,7 @@ export default function SupervisorDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+      {loading && <Loader />}
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6 sm:py-8">

@@ -6,12 +6,14 @@ import { Eye, EyeOff, LogIn, User, Lock, Sun, Moon, ArrowRight, ShieldCheck, XCi
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../config/api';
+import Loader from '../components/Loader';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   
   // 2FA State
   const [verificationId, setVerificationId] = useState(null);
@@ -86,22 +88,30 @@ export default function Login() {
         return;
     }
 
-    const result = await login(email, password);
-    
-    if (result.requireVerification) {
-        setVerificationId(result.verificationId);
-        setIsPolling(true);
-        setShowOtpInput(false);
-        setOtp('');
-    } else if (result.success) {
-        navigate('/');
-    } else {
-      setError(result.message);
+    setIsLoading(true);
+    try {
+      const result = await login(email, password);
+      
+      if (result.requireVerification) {
+          setVerificationId(result.verificationId);
+          setIsPolling(true);
+          setShowOtpInput(false);
+          setOtp('');
+      } else if (result.success) {
+          navigate('/');
+      } else {
+        setError(result.message);
+      }
+    } catch (err) {
+      setError("An unexpected error occurred.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen w-full flex overflow-hidden bg-white dark:bg-slate-950 transition-colors duration-500 relative">
+      {isLoading && <Loader text="Signing in..." />}
       
       {/* Verification Modal */}
       <AnimatePresence>
