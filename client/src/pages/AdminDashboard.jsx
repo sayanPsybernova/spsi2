@@ -3,6 +3,7 @@ import axios from "axios";
 import Navbar from "../components/Navbar";
 import UserFormModal from "../components/UserFormModal";
 import DashboardOverview from "../components/DashboardOverview";
+import ExportDataModal from "../components/ExportDataModal";
 import {
   MessageSquare,
   User,
@@ -20,7 +21,8 @@ import {
   Eye,
   EyeOff,
   LayoutDashboard,
-  ChevronRight
+  ChevronRight,
+  Download
 } from "lucide-react";
 import { API_ENDPOINTS } from "../config/api";
 import { motion, AnimatePresence } from "framer-motion";
@@ -44,6 +46,7 @@ export default function AdminDashboard() {
   const [selectedRole, setSelectedRole] = useState("supervisor");
   const [editingUser, setEditingUser] = useState(null);
   const [visiblePasswordId, setVisiblePasswordId] = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Master Data Forms
   const [newWO, setNewWO] = useState("");
@@ -654,6 +657,15 @@ export default function AdminDashboard() {
                             icon={<Database size={20} />} 
                             label="Master Data" 
                         />
+                        <button
+                            onClick={() => setShowExportModal(true)}
+                            className="relative w-full flex items-center justify-between p-4 rounded-xl transition-all duration-300 group z-10 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                        >
+                            <div className="flex items-center gap-3 relative z-10">
+                                <Download size={20} />
+                                <span className="font-bold">Download Data</span>
+                            </div>
+                        </button>
                     </div>
 
                     <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-700">
@@ -723,6 +735,11 @@ export default function AdminDashboard() {
                   setShowUserModal(false);
               }}
           />
+      )}
+
+      {/* Export Data Modal */}
+      {showExportModal && (
+        <ExportDataModal onClose={() => setShowExportModal(false)} />
       )}
     </div>
   );
