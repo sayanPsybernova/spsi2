@@ -6,10 +6,14 @@ const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
 const fs = require("fs");
 const nodemailer = require("nodemailer");
+const dns = require("dns").promises; // Import DNS for hostname lookup
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Trust the proxy to get the real IP address (Critical for Vercel/Heroku/AWS)
+app.set("trust proxy", 1);
 
 // Middleware
 app.use(cors());
@@ -31,27 +35,73 @@ const transporter = nodemailer.createTransport({
 // Structure: { [uuid]: { status: 'pending' | 'approved' | 'denied', user: userObj, timestamp: number } }
 const pendingVerifications = {};
 
+// Helper to make User-Agent readable
+const parseUserAgent = (ua) => {
+  if (!ua) return { browser: "Unknown", os: "Unknown" };
+  
+  let browser = "Unknown Browser";
+  let os = "Unknown OS";
+
+  // Detect OS
+  if (ua.includes("Windows")) os = "Windows";
+  else if (ua.includes("Macintosh")) os = "macOS";
+  else if (ua.includes("Linux")) os = "Linux";
+  else if (ua.includes("Android")) os = "Android";
+  else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
+
+  // Detect Browser
+  if (ua.includes("Firefox")) browser = "Firefox";
+  else if (ua.includes("SamsungBrowser")) browser = "Samsung Internet";
+  else if (ua.includes("Opera") || ua.includes("OPR")) browser = "Opera";
+  else if (ua.includes("Edge") || ua.includes("Edg")) browser = "Microsoft Edge";
+  else if (ua.includes("Chrome")) browser = "Google Chrome"; // Check Chrome before Safari
+  else if (ua.includes("Safari")) browser = "Safari";
+
+  return `${browser} on ${os}`;
+};
+
 const sendLoginNotification = async (email, time, ip, userAgent, verificationId) => {
   try {
     let location = "Unknown";
+    let isp = "Unknown ISP";
+    let hostname = "N/A";
+
+    // 1. Fetch Location & ISP from IP-API
     try {
       // Basic check for localhost
       if (ip === "::1" || ip === "127.0.0.1" || ip.includes("192.168.")) {
         location = "Localhost / Internal Network";
+        isp = "Local Network";
+        hostname = "localhost";
       } else {
         const res = await fetch(`http://ip-api.com/json/${ip}`);
         const data = await res.json();
         if (data.status === "success") {
           location = `${data.city}, ${data.regionName}, ${data.country}`;
+          isp = data.isp || data.org || "Unknown";
         }
       }
     } catch (locErr) {
       console.error("Failed to fetch location:", locErr);
     }
 
+    // 2. Try Reverse DNS (Hostname) - Best effort
+    if (ip !== "::1" && ip !== "127.0.0.1" && !ip.includes("192.168.")) {
+        try {
+            const hostnames = await dns.reverse(ip);
+            if (hostnames && hostnames.length > 0) {
+                hostname = hostnames[0];
+            }
+        } catch (dnsErr) {
+            // DNS lookup failed (common for residential IPs), ignore
+        }
+    }
+
     const baseUrl = "http://localhost:5000"; // Adjust if deployed
     const approveLink = `${baseUrl}/api/verify-login?id=${verificationId}&answer=yes`;
     const denyLink = `${baseUrl}/api/verify-login?id=${verificationId}&answer=no`;
+
+    const friendlyDevice = parseUserAgent(userAgent);
 
     const mailOptions = {
       from: '"SPSI Security" <pradhansayan222@gmail.com>',
@@ -65,9 +115,13 @@ const sendLoginNotification = async (email, time, ip, userAgent, verificationId)
           
           <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <p style="margin: 5px 0;"><strong>Time:</strong> ${time}</p>
-            <p style="margin: 5px 0;"><strong>IP Address:</strong> ${ip}</p>
             <p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>
-            <p style="margin: 5px 0;"><strong>Device:</strong> ${userAgent}</p>
+            <p style="margin: 5px 0;"><strong>ISP:</strong> ${isp}</p>
+            <p style="margin: 5px 0;"><strong>Hostname:</strong> ${hostname}</p>
+            <p style="margin: 5px 0;"><strong>IP Address:</strong> ${ip}</p>
+            <hr style="border: 0; border-top: 1px solid #ddd; margin: 10px 0;">
+            <p style="margin: 5px 0;"><strong>Device:</strong> ${friendlyDevice}</p>
+            <p style="margin: 5px 0; font-size: 11px; color: #666; word-break: break-all;"><strong>Exact Raw Data:</strong><br/>${userAgent}</p>
           </div>
 
           <p style="font-size: 16px; font-weight: bold;">Is this you?</p>
