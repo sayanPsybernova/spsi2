@@ -52,5 +52,23 @@
     "rate": 7,
     "standard_manpower": "7",
     "created_at": "2025-12-11T09:01:04.128Z"
+  },
+  {
+    "id": "2b2b96c7-e64b-41b4-8bcd-3cbc7c1e6bd0",
+    "work_order_id": "be2e627f-40af-4117-9070-74bb30c59497",
+    "name": "rope",
+    "uom": "10",
+    "rate": 5,
+    "standard_manpower": "5",
+    "created_at": "2025-12-11T15:46:19.695Z"
+  },
+  {
+    "id": "90eec3a4-59a0-4465-9d2a-781621fcc6e5",
+    "work_order_id": "be2e627f-40af-4117-9070-74bb30c59497",
+    "name": "cable",
+    "uom": "10",
+    "rate": 5,
+    "standard_manpower": "10",
+    "created_at": "2025-12-11T15:46:34.824Z"
   }
 ]

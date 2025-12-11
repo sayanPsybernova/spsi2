@@ -22,10 +22,12 @@ import {
   DollarSign,
   Activity,
   ArrowRight,
+  Download,
 } from "lucide-react";
 import ActiveUsersModal from "../components/ActiveUsersModal";
 import UserFormModal from "../components/UserFormModal";
 import ApprovedSubmissionsModal from "../components/ApprovedSubmissionsModal";
+import ExportDataModal from "../components/ExportDataModal";
 import AllEmployeesModal from "../components/AllEmployeesModal";
 import PendingSubmissionsModal from "../components/PendingSubmissionsModal";
 import Navbar from "../components/Navbar";
@@ -385,6 +387,13 @@ export default function SuperAdminDashboard() {
                     color: "emerald",
                   },
                   {
+                    id: "export_data",
+                    icon: Download,
+                    label: "Download Data",
+                    sub: "Export to Excel",
+                    color: "teal",
+                  },
+                  {
                     id: "all_employees",
                     icon: Briefcase,
                     label: "Employees",
@@ -459,6 +468,10 @@ export default function SuperAdminDashboard() {
 
       {activeModal === "active_users" && (
         <ActiveUsersModal onClose={() => setActiveModal(null)} />
+      )}
+
+      {activeModal === "export_data" && (
+        <ExportDataModal onClose={() => setActiveModal(null)} />
       )}
     </div>
   );
