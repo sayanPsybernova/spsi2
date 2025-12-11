@@ -407,38 +407,49 @@ export default function SuperAdminDashboard() {
                     sub: "Currently logged in",
                     color: "orange",
                   },
-                ].map((item) => (
-                  <motion.button
-                    key={item.id}
-                    whileHover={{
-                      scale: 1.02,
-                      backgroundColor:
-                        theme === "dark"
-                          ? "rgba(30, 41, 59, 0.8)"
-                          : "rgba(241, 245, 249, 0.8)",
-                    }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setActiveModal(item.id)}
-                    className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 transition-all text-left group"
-                  >
-                    <div
-                      className={`h-10 w-10 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl flex items-center justify-center transition-all bg-${item.color}-100 dark:bg-${item.color}-900/30 text-${item.color}-600 dark:text-${item.color}-400 group-hover:scale-110`}
+                ].map((item) => {
+                  const colorVariants = {
+                    blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
+                    teal: "bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400",
+                    indigo: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400",
+                    emerald: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400",
+                    purple: "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
+                    orange: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                  };
+
+                  return (
+                    <motion.button
+                      key={item.id}
+                      whileHover={{
+                        scale: 1.02,
+                        backgroundColor:
+                          theme === "dark"
+                            ? "rgba(30, 41, 59, 0.8)"
+                            : "rgba(241, 245, 249, 0.8)",
+                      }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setActiveModal(item.id)}
+                      className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 transition-all text-left group"
                     >
-                      <item.icon size={16} sm:size={22} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">
-                        {item.label}
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {item.sub}
-                      </p>
-                    </div>
-                    <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-slate-400">
-                      <ArrowRight size={12} sm:size={16} />
-                    </div>
-                  </motion.button>
-                ))}
+                      <div
+                        className={`h-10 w-10 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl flex items-center justify-center transition-all group-hover:scale-110 ${colorVariants[item.color] || colorVariants.blue}`}
+                      >
+                        <item.icon size={16} sm:size={22} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">
+                          {item.label}
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {item.sub}
+                        </p>
+                      </div>
+                      <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-slate-400">
+                        <ArrowRight size={12} sm:size={16} />
+                      </div>
+                    </motion.button>
+                  );
+                })}
               </div>
             </div>
           </motion.div>

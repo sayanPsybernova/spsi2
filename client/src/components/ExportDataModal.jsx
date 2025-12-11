@@ -45,9 +45,9 @@ export default function ExportDataModal({ onClose }) {
 
       // 2. Fetch Data
       // Fetching all admin submissions then filtering client-side for simplicity/safety
-      // Assuming API returns enough data. If heavy, backend filtering would be better.
+      // Added timestamp to prevent caching
       const res = await axios.get(API_ENDPOINTS.submissions, {
-        params: { role: "admin", view: "all" } // 'all' to ensure we get everything to filter
+        params: { role: "admin", view: "all", t: Date.now() } 
       });
 
       let data = res.data;
@@ -69,18 +69,19 @@ export default function ExportDataModal({ onClose }) {
       filteredData.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
       // 5. Format for Excel
+      // Explicitly mapping to ensure column order (keys are fixed on row 1)
       const excelData = filteredData.map(item => ({
         "Date": new Date(item.created_at).toLocaleDateString(),
         "Time": new Date(item.created_at).toLocaleTimeString(),
-        "Work Order": item.work_order_number,
-        "Line Item": item.line_item_name,
-        "Supervisor Name": item.supervisor_name,
-        "Supervisor Emp ID": item.supervisor_emp_id,
-        "Quantity": item.quantity,
-        "UOM": item.uom,
-        "Rate": item.snapshot_rate,
-        "Revenue": item.revenue,
-        "Status": item.status,
+        "Work Order": item.work_order_number || "-",
+        "Line Item": item.line_item_name || "-",
+        "Supervisor Name": item.supervisor_name || "-",
+        "Supervisor Emp ID": item.supervisor_emp_id || "-",
+        "Quantity": item.quantity || 0,
+        "UOM": item.uom || "-",
+        "Rate": item.snapshot_rate || 0,
+        "Revenue": item.revenue || 0,
+        "Status": item.status || "Approved",
         "Remarks": item.remarks || "-"
       }));
 
