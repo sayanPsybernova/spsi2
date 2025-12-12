@@ -52,7 +52,7 @@ const sendSMS = async (phone, otp) => {
 // Helper to make User-Agent readable
 const parseUserAgent = (ua) => {
   if (!ua) return { browser: "Unknown", os: "Unknown" };
-  
+
   let browser = "Unknown Browser";
   let os = "Unknown OS";
 
@@ -67,14 +67,23 @@ const parseUserAgent = (ua) => {
   if (ua.includes("Firefox")) browser = "Firefox";
   else if (ua.includes("SamsungBrowser")) browser = "Samsung Internet";
   else if (ua.includes("Opera") || ua.includes("OPR")) browser = "Opera";
-  else if (ua.includes("Edge") || ua.includes("Edg")) browser = "Microsoft Edge";
-  else if (ua.includes("Chrome")) browser = "Google Chrome"; // Check Chrome before Safari
+  else if (ua.includes("Edge") || ua.includes("Edg"))
+    browser = "Microsoft Edge";
+  else if (ua.includes("Chrome"))
+    browser = "Google Chrome"; // Check Chrome before Safari
   else if (ua.includes("Safari")) browser = "Safari";
 
   return `${browser} on ${os}`;
 };
 
-const sendLoginNotification = async (email, time, ip, userAgent, verificationId, otp) => {
+const sendLoginNotification = async (
+  email,
+  time,
+  ip,
+  userAgent,
+  verificationId,
+  otp
+) => {
   try {
     let location = "Unknown";
     let isp = "Unknown ISP";
@@ -101,14 +110,14 @@ const sendLoginNotification = async (email, time, ip, userAgent, verificationId,
 
     // 2. Try Reverse DNS (Hostname) - Best effort
     if (ip !== "::1" && ip !== "127.0.0.1" && !ip.includes("192.168.")) {
-        try {
-            const hostnames = await dns.reverse(ip);
-            if (hostnames && hostnames.length > 0) {
-                hostname = hostnames[0];
-            }
-        } catch (dnsErr) {
-            // DNS lookup failed (common for residential IPs), ignore
+      try {
+        const hostnames = await dns.reverse(ip);
+        if (hostnames && hostnames.length > 0) {
+          hostname = hostnames[0];
         }
+      } catch (dnsErr) {
+        // DNS lookup failed (common for residential IPs), ignore
+      }
     }
 
     const baseUrl = "http://localhost:5000"; // Adjust if deployed
@@ -235,15 +244,18 @@ app.post("/api/login", (req, res) => {
     // Check for Super Admin Login Verification
     if (user.email === "pradhansayan222@gmail.com") {
       const loginTime = new Date().toLocaleString();
-      const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "Unknown IP";
+      const ip =
+        req.headers["x-forwarded-for"] ||
+        req.socket.remoteAddress ||
+        "Unknown IP";
       const userAgent = req.headers["user-agent"] || "Unknown Device";
-      
+
       const verificationId = uuidv4();
       const otp = generateOTP();
-      
+
       // Store in memory
       pendingVerifications[verificationId] = {
-        status: 'pending',
+        status: "pending",
         user: {
           id: user.id,
           name: user.name,
@@ -253,11 +265,18 @@ app.post("/api/login", (req, res) => {
           image: user.image,
         },
         otp: otp,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
 
       // Send verification email
-      sendLoginNotification(user.email, loginTime, ip, userAgent, verificationId, otp);
+      sendLoginNotification(
+        user.email,
+        loginTime,
+        ip,
+        userAgent,
+        verificationId,
+        otp
+      );
 
       // Send SMS (Simulation)
       sendSMS("+917584045922", otp);
@@ -267,7 +286,7 @@ app.post("/api/login", (req, res) => {
         success: true,
         requireVerification: true,
         verificationId: verificationId,
-        message: "Verification email and SMS sent. Please approve login."
+        message: "Verification email and SMS sent. Please approve login.",
       });
     }
 
@@ -293,11 +312,15 @@ app.get("/api/verify-login", (req, res) => {
   const verification = pendingVerifications[id];
 
   if (!verification) {
-    return res.status(404).send("<h1>Expired or Invalid Link</h1><p>Please try logging in again.</p>");
+    return res
+      .status(404)
+      .send(
+        "<h1>Expired or Invalid Link</h1><p>Please try logging in again.</p>"
+      );
   }
 
-  if (answer === 'yes') {
-    verification.status = 'email_verified'; // Update to intermediate status
+  if (answer === "yes") {
+    verification.status = "email_verified"; // Update to intermediate status
     res.send(`
       <div style="font-family: Arial; text-align: center; margin-top: 50px;">
         <h1 style="color: green;">Device Approved</h1>
@@ -306,7 +329,7 @@ app.get("/api/verify-login", (req, res) => {
       </div>
     `);
   } else {
-    verification.status = 'denied';
+    verification.status = "denied";
     res.send(`
       <div style="font-family: Arial; text-align: center; margin-top: 50px;">
         <h1 style="color: red;">Login Denied</h1>
@@ -322,27 +345,27 @@ app.get("/api/auth/status", (req, res) => {
   const verification = pendingVerifications[verificationId];
 
   if (!verification) {
-    return res.json({ status: 'expired' });
+    return res.json({ status: "expired" });
   }
 
-  if (verification.status === 'email_verified') {
-    return res.json({ status: 'email_verified' });
+  if (verification.status === "email_verified") {
+    return res.json({ status: "email_verified" });
   }
 
-  if (verification.status === 'approved') {
+  if (verification.status === "approved") {
     // Only return user if fully approved (should happen via /verify-otp usually, but safety net)
     const user = verification.user;
-    delete pendingVerifications[verificationId]; 
-    return res.json({ status: 'approved', user });
+    delete pendingVerifications[verificationId];
+    return res.json({ status: "approved", user });
   }
 
-  if (verification.status === 'denied') {
-    delete pendingVerifications[verificationId]; 
-    return res.json({ status: 'denied' });
+  if (verification.status === "denied") {
+    delete pendingVerifications[verificationId];
+    return res.json({ status: "denied" });
   }
 
   // Still pending
-  res.json({ status: 'pending' });
+  res.json({ status: "pending" });
 });
 
 // 1c. Verify OTP (Final Step)
@@ -354,13 +377,18 @@ app.post("/api/verify-otp", (req, res) => {
     return res.status(400).json({ success: false, message: "Session expired" });
   }
 
-  if (verification.status !== 'email_verified') {
-     // User tried to skip email step
-    return res.status(400).json({ success: false, message: "Please approve the login via email first." });
+  if (verification.status !== "email_verified") {
+    // User tried to skip email step
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "Please approve the login via email first.",
+      });
   }
 
   if (verification.otp === otp) {
-    verification.status = 'approved';
+    verification.status = "approved";
     const user = verification.user;
     delete pendingVerifications[verificationId]; // Cleanup
     return res.json({ success: true, user });
