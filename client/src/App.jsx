@@ -4,6 +4,7 @@ import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import SupervisorDashboard from './pages/SupervisorDashboard';
 import ValidatorDashboard from './pages/ValidatorDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import ManagerDashboard from './pages/ManagerDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 
@@ -11,12 +12,13 @@ function HomeRedirect() {
   const { user, loading } = useAuth();
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to="/login" />;
-  
+
   if (user.role === 'superadmin') return <Navigate to="/super-admin" />;
   if (user.role === 'supervisor') return <Navigate to="/supervisor" />;
   if (user.role === 'validator') return <Navigate to="/validator" />;
   if (user.role === 'admin') return <Navigate to="/admin" />;
-  
+  if (user.role === 'manager') return <Navigate to="/manager" />;
+
   return <Navigate to="/login" />;
 }
 
@@ -48,6 +50,12 @@ function App() {
       <Route path="/admin" element={
         <ProtectedRoute roles={['admin']}>
           <AdminDashboard />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/manager" element={
+        <ProtectedRoute roles={['manager']}>
+          <ManagerDashboard />
         </ProtectedRoute>
       } />
     </Routes>

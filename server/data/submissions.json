@@ -285,7 +285,7 @@
     "snapshot_rate": 3,
     "snapshot_standard_manpower": "5",
     "revenue": 3,
-    "status": "Pending Validation",
+    "status": "Approved",
     "remarks": "",
     "admin_remarks": "",
     "evidence_photos": [
@@ -295,7 +295,7 @@
     ],
     "previous_submission_id": null,
     "created_at": "2025-12-11T09:27:51.780Z",
-    "updated_at": "2025-12-11T09:27:51.780Z"
+    "updated_at": "2025-12-12T10:36:38.654Z"
   },
   {
     "id": "209f55c2-588a-4855-aa88-3f623a1c4e5b",
@@ -341,5 +341,27 @@
     "previous_submission_id": null,
     "created_at": "2025-12-11T15:52:08.575Z",
     "updated_at": "2025-12-11T15:53:09.170Z"
+  },
+  {
+    "id": "976ee6cd-7003-48ae-83f1-06bea6aeeb84",
+    "supervisor_id": "undefined",
+    "supervisor_name": "s",
+    "work_order_id": "85c3fce9-adb7-4553-89c4-f96325677b83",
+    "line_item_id": "71a752cc-d322-4981-8ff7-d57f3b9ebb15",
+    "quantity": 6,
+    "actual_manpower": "6",
+    "material_consumed": "can",
+    "snapshot_rate": 10,
+    "snapshot_standard_manpower": "5",
+    "revenue": 60,
+    "status": "Approved",
+    "remarks": "",
+    "admin_remarks": "",
+    "evidence_photos": [
+      "/uploads/1765535770981-856501268.jpg"
+    ],
+    "previous_submission_id": null,
+    "created_at": "2025-12-12T10:36:10.995Z",
+    "updated_at": "2025-12-12T10:36:40.960Z"
   }
 ]

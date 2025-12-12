@@ -785,21 +785,55 @@ app.put("/api/submissions/:id", upload.array("photos"), (req, res) => {
 app.get("/api/stats", (req, res) => {
   const submissions = readData(FILES.submissions);
   const users = readData(FILES.users); // Need users for detailed stats
+  const workOrders = readData(FILES.workOrders); // Load work orders for mapping
+
+  // Create a map of work_order_id -> order_number
+  const workOrderMap = {};
+  workOrders.forEach((wo) => {
+    workOrderMap[wo.id] = wo.order_number || wo.id;
+  });
+
+  // Helper function to get work order number from submission
+  const getWorkOrderNumber = (submission) => {
+    if (submission.work_order_id && workOrderMap[submission.work_order_id]) {
+      return "WO-" + workOrderMap[submission.work_order_id];
+    }
+    return submission.work_order_number || "Unknown";
+  };
 
   // 1. Total Revenue (Approved only)
   const totalRevenue = submissions
     .filter((s) => s.status === "Approved")
     .reduce((sum, s) => sum + (s.revenue || 0), 0);
 
-  // 1b. Revenue Breakdown by Work Order
+  // 1b. Revenue Breakdown by Work Order (All time)
   const revenueByWO = {};
   submissions
     .filter((s) => s.status === "Approved")
     .forEach((s) => {
-      const wo = s.work_order_number || "Unknown";
+      const wo = getWorkOrderNumber(s);
       revenueByWO[wo] = (revenueByWO[wo] || 0) + (s.revenue || 0);
     });
   const revenueBreakdown = Object.entries(revenueByWO)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  // 1c. Weekly Revenue Breakdown by Work Order (current week from Monday)
+  const nowForWO = new Date();
+  const startOfWeekForWO = new Date(nowForWO);
+  const dayOfWeekForWO = startOfWeekForWO.getDay();
+  const diffForWO = startOfWeekForWO.getDate() - dayOfWeekForWO + (dayOfWeekForWO === 0 ? -6 : 1);
+  startOfWeekForWO.setDate(diffForWO);
+  startOfWeekForWO.setHours(0, 0, 0, 0);
+
+  const weeklyRevenueByWO = {};
+  submissions
+    .filter((s) => s.status === "Approved" && new Date(s.created_at) >= startOfWeekForWO)
+    .forEach((s) => {
+      const wo = getWorkOrderNumber(s);
+      weeklyRevenueByWO[wo] = (weeklyRevenueByWO[wo] || 0) + (s.revenue || 0);
+    });
+  const weeklyRevenueBreakdown = Object.entries(weeklyRevenueByWO)
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
@@ -873,6 +907,35 @@ app.get("/api/stats", (req, res) => {
     return { date: year, revenue: rev };
   });
 
+  // 3d. MTD (Month-to-Date) Revenue
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const mtdRevenue = submissions
+    .filter((s) => s.status === "Approved" && new Date(s.created_at) >= startOfMonth)
+    .reduce((sum, s) => sum + (s.revenue || 0), 0);
+
+  // 3e. YTD (Year-to-Date) Revenue
+  const startOfYear = new Date(today.getFullYear(), 0, 1);
+  const ytdRevenue = submissions
+    .filter((s) => s.status === "Approved" && new Date(s.created_at) >= startOfYear)
+    .reduce((sum, s) => sum + (s.revenue || 0), 0);
+
+  // 3f. Weekly Cumulative Revenue (from Monday of current week)
+  const startOfWeek = new Date(today);
+  const dayOfWeek = startOfWeek.getDay();
+  const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Sunday
+  startOfWeek.setDate(diff);
+  startOfWeek.setHours(0, 0, 0, 0);
+  const weeklyRevenue = submissions
+    .filter((s) => s.status === "Approved" && new Date(s.created_at) >= startOfWeek)
+    .reduce((sum, s) => sum + (s.revenue || 0), 0);
+
+  // 3g. Daily Cumulative Revenue (Today only)
+  const startOfToday = new Date(today);
+  startOfToday.setHours(0, 0, 0, 0);
+  const dailyCumulativeRevenue = submissions
+    .filter((s) => s.status === "Approved" && new Date(s.created_at) >= startOfToday)
+    .reduce((sum, s) => sum + (s.revenue || 0), 0);
+
   // 4. Top Supervisors & User Performance
   const supervisorStats = {};
   submissions
@@ -934,16 +997,46 @@ app.get("/api/stats", (req, res) => {
     };
   });
 
+  // chartData for backward compatibility with SuperAdminDashboard
+  // Uses last 12 months with { name, sales } format
+  const last12Months = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(today.getMonth() - i);
+    return {
+      label: d.toLocaleDateString("en-US", { month: "short" }) + " " + d.getFullYear(),
+      key: d.toISOString().slice(0, 7),
+    };
+  }).reverse();
+
+  const chartData = last12Months.map((m) => {
+    const rev = submissions
+      .filter((s) => s.status === "Approved" && s.created_at.startsWith(m.key))
+      .reduce((sum, s) => sum + (s.revenue || 0), 0);
+    return { name: m.label, sales: rev };
+  });
+
+  // Count active users and pending tasks
+  const activeUsers = users.filter((u) => u.active).length;
+  const pendingTasks = submissions.filter((s) => s.status === "Pending Validation" || s.status === "Pending").length;
+
   res.json({
     totalRevenue,
-    revenueBreakdown, // New
+    mtdRevenue,
+    ytdRevenue,
+    weeklyRevenue,
+    dailyCumulativeRevenue,
+    revenueBreakdown,
+    weeklyRevenueBreakdown,
     statusBreakdown,
     dailyRevenue,
     monthlyRevenue,
     yearlyRevenue,
     topSupervisors,
-    topPerformerDetails, // New
-    userPerformance, // New
+    topPerformerDetails,
+    userPerformance,
+    chartData,
+    activeUsers,
+    pendingTasks,
   });
 });
 

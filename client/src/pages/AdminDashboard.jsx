@@ -468,6 +468,7 @@ export default function AdminDashboard() {
                           <option value="supervisor">Supervisor</option>
                           <option value="validator">Validator</option>
                           <option value="admin">Admin</option>
+                          <option value="manager">Manager</option>
                         </select>
                         <motion.button
                           whileHover={{ scale: 1.02 }}

@@ -3,10 +3,10 @@
     "id": "admin-uuid-001",
     "name": "Super Admin",
     "emp_id": "ADMIN001",
-    "role": "admin",
+    "role": "superadmin",
     "phone": "0000000000",
     "email": "pradhansayan222@gmail.com",
-    "password": "Sayan@0306",
+    "password": "123",
     "image": "",
     "active": true
   },
@@ -89,5 +89,29 @@
     "active": true,
     "image": "/uploads/1765467895282-385424745.png",
     "created_at": "2025-12-11T15:44:55.290Z"
+  },
+  {
+    "id": "44678502-6710-4c71-a20e-227cd5455cd0",
+    "name": "manager",
+    "emp_id": "11",
+    "role": "manager",
+    "phone": "565",
+    "email": "m@gmail.com",
+    "password": "123",
+    "active": true,
+    "image": "/uploads/1765532462054-836629179.png",
+    "created_at": "2025-12-12T09:41:02.059Z"
+  },
+  {
+    "id": "00c09a1c-4e82-49c5-a662-3ea4f7bd2a05",
+    "name": "m2",
+    "emp_id": "12",
+    "role": "manager",
+    "phone": "4556",
+    "email": "m2@gmail.com",
+    "password": "123",
+    "active": true,
+    "image": "/uploads/1765535987121-434024020.png",
+    "created_at": "2025-12-12T10:39:47.283Z"
   }
 ]

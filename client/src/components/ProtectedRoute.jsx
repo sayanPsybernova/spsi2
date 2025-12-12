@@ -22,6 +22,7 @@ export default function ProtectedRoute({ children, roles }) {
     if (user.role === "supervisor") return <Navigate to="/supervisor" />;
     if (user.role === "validator") return <Navigate to="/validator" />;
     if (user.role === "admin") return <Navigate to="/admin" />;
+    if (user.role === "manager") return <Navigate to="/manager" />;
     return <Navigate to="/" />;
   }
 

@@ -70,5 +70,14 @@
     "rate": 5,
     "standard_manpower": "10",
     "created_at": "2025-12-11T15:46:34.824Z"
+  },
+  {
+    "id": "71a752cc-d322-4981-8ff7-d57f3b9ebb15",
+    "work_order_id": "85c3fce9-adb7-4553-89c4-f96325677b83",
+    "name": "chemical",
+    "uom": "4",
+    "rate": 10,
+    "standard_manpower": "5",
+    "created_at": "2025-12-12T10:34:40.182Z"
   }
 ]
